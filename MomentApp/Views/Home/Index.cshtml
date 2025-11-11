@@ -1,0 +1,178 @@
+@{
+    ViewData["Title"] = "Moment";
+    Layout = null;
+}
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Moment - Conversations that disappear</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root{--primary:#1ed760;--primary-hover:#2ee86f;--secondary:#4ECDC4;--accent:#FFE66D;--purple:#A78BFA;--bg:#1a2332;--card:#2a3850;--text:#fff;--text-secondary:#b3b3b3;--border:#3d4d68}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;background:var(--bg) url('/images/pattern-bg.jpg') repeat;color:var(--text);line-height:1.6}
+        nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(26,35,50,.95);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+        .nav-container{max-width:1400px;margin:0 auto;padding:1rem 2rem;display:flex;justify-content:space-between;align-items:center}
+        .logo-nav{font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--secondary));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+        .nav-cta{background:linear-gradient(135deg,var(--secondary),#5DD9CF);color:#fff;padding:.75rem 1.75rem;border-radius:500px;text-decoration:none;font-weight:600;font-size:.9rem;transition:all .2s;box-shadow:0 4px 15px rgba(78,205,196,.3)}
+        .nav-cta:hover{transform:scale(1.04);box-shadow:0 6px 20px rgba(78,205,196,.4)}
+        .hero{padding:10rem 2rem 6rem;position:relative;overflow:hidden}
+        .hero::before{content:'';position:absolute;top:0;left:0;width:100vw;height:100%;background:url('/images/hero-bg.jpg') center/cover no-repeat;opacity:.3;z-index:0;pointer-events:none;margin-left:calc(-50vw + 50%)}
+        .hero-content{position:relative;z-index:1;max-width:900px;margin:0 auto}
+        .hero h1{font-size:clamp(2.5rem,6vw,5rem);font-weight:900;line-height:1.1;margin-bottom:1.5rem;background:linear-gradient(135deg,var(--primary),var(--secondary),var(--purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .hero-subtitle{font-size:clamp(1.1rem,2vw,1.5rem);color:var(--text-secondary);margin-bottom:3rem;max-width:600px}
+        .hero-buttons{display:flex;gap:1rem;flex-wrap:wrap}
+        .btn-primary{background:rgba(30,215,96,.15);color:#fff;padding:1.125rem 2.5rem;border-radius:500px;text-decoration:none;font-weight:700;border:2px solid var(--primary);transition:all .2s}
+        .btn-primary:hover{background:var(--primary);color:#000;transform:scale(1.04)}
+        .btn-secondary{background:rgba(78,205,196,.15);color:var(--text);padding:1.125rem 2.5rem;border-radius:500px;text-decoration:none;font-weight:700;border:2px solid var(--secondary);transition:all .2s}
+        .btn-secondary:hover{background:var(--secondary);color:#000;transform:scale(1.04)}
+        .features{padding:6rem 2rem;max-width:1400px;margin:0 auto}
+        .section-title{font-size:clamp(2rem,4vw,3rem);font-weight:800;margin-bottom:1rem;text-align:center}
+        .section-description{font-size:1.125rem;color:var(--text-secondary);max-width:600px;margin:0 auto 4rem;text-align:center}
+        .features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2rem}
+        .feature-item{background:rgba(42,56,80,.85);padding:2.5rem 2rem;border-radius:12px;border:1px solid var(--border);transition:all .3s;position:relative;overflow:hidden;backdrop-filter:blur(10px)}
+        .feature-item::before{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg,rgba(30,215,96,.15) 0%,transparent 50%,rgba(78,205,196,.15) 100%);clip-path:polygon(0 0,100% 0,100% 60%,0 100%);z-index:0;transition:opacity .3s}
+        .feature-item:hover::before{opacity:1.5}
+        .feature-item:hover{border-color:var(--primary);transform:translateY(-4px)}
+        .feature-item > *{position:relative;z-index:1}
+        .feature-icon{font-size:2.5rem;margin-bottom:1.25rem}
+        .feature-title{font-size:1.25rem;font-weight:700;margin-bottom:.75rem;color:var(--primary)}
+        .feature-text{color:var(--text-secondary);line-height:1.7}
+        .use-cases{padding:6rem 2rem;background:rgba(42, 56, 80, 0.062);border-top:1px solid var(--border);border-bottom:1px solid var(--border);backdrop-filter:blur(10px)}
+        .use-cases-container{max-width:1400px;margin:0 auto}
+        .use-cases-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:3rem}
+        .use-case-card{display:flex;gap:1.25rem}
+        .use-case-icon{width:48px;height:48px;background:linear-gradient(135deg,rgba(255,107,107,.15),rgba(78,205,196,.15));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+        .use-case-content h3{font-size:1.125rem;font-weight:700;margin-bottom:.5rem}
+        .use-case-content p{color:var(--text-secondary);line-height:1.6}
+        .how-works{padding:6rem 2rem;max-width:1400px;margin:0 auto}
+        .steps-container{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:3rem;margin-top:4rem}
+        .step{text-align:center}
+        .step-number{width:72px;height:72px;background:linear-gradient(135deg,var(--primary),var(--secondary));border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:1.75rem;font-weight:800;color:#fff;box-shadow:0 4px 15px rgba(255,107,107,.3)}
+        .step h3{font-size:1.375rem;font-weight:700;margin-bottom:.75rem}
+        .step p{color:var(--text-secondary);line-height:1.7}
+        .cta-section{padding:8rem 2rem;background:linear-gradient(135deg,rgba(30,215,96,.08) 0%,rgba(78,205,196,.08) 100%);text-align:center;backdrop-filter:blur(10px)}
+        .cta-section h2{font-size:clamp(2rem,4vw,3.5rem);font-weight:900;margin-bottom:1rem}
+        .cta-section p{font-size:1.25rem;color:var(--text-secondary);margin-bottom:2.5rem}
+        footer{padding:3rem 2rem;border-top:1px solid var(--border);text-align:center}
+        footer p{color:var(--text-secondary);font-size:.875rem}
+        @@media (max-width:768px){.hero{padding:8rem 1.5rem 4rem}.hero-buttons{flex-direction:column}.btn-primary,.btn-secondary{width:100%;text-align:center}}
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="nav-container">
+            <a href="/" class="logo-nav">Moment</a>
+            <a href="/Room/Create" class="nav-cta">Get Started</a>
+        </div>
+    </nav>
+    <section class="hero">
+        <div class="hero-content">
+            <h1>Conversations without compromise</h1>
+            <p class="hero-subtitle">Secure, ephemeral messaging that disappears when you're done. No accounts, no tracking, no permanent records.</p>
+            <div class="hero-buttons">
+                <a href="/Room/Create" class="btn-primary">Create a Moment</a>
+                <a href="/Room/Join" class="btn-secondary">Join with Code</a>
+            </div>
+        </div>
+    </section>
+    <section class="features">
+        <div class="section-header">
+            <h2 class="section-title">Privacy doesn't have to be complicated</h2>
+            <p class="section-description">Jump into secure conversations instantly, without sacrificing simplicity or speed.</p>
+        </div>
+        <div class="features-grid">
+            <div class="feature-item">
+                <h3 class="feature-title">Instant Access</h3>
+                <p class="feature-text">No signup, no downloads. Create or join a room in seconds and start chatting immediately.</p>
+            </div>
+            <div class="feature-item">
+                <h3 class="feature-title">Truly Ephemeral</h3>
+                <p class="feature-text">Messages exist only in memory. When the room closes, everything vanishes permanently.</p>
+            </div>
+            <div class="feature-item">
+                <h3 class="feature-title">Real-time Collaboration</h3>
+                <p class="feature-text">See who's typing, get instant updates, and collaborate seamlessly with your team.</p>
+            </div>
+            <div class="feature-item">
+                <h3 class="feature-title">Democratic Control</h3>
+                <p class="feature-text">Vote together to close rooms early. Majority rules, everyone has a voice.</p>
+            </div>
+        </div>
+    </section>
+    <section class="use-cases">
+        <div class="use-cases-container">
+            <h2 class="section-title">Built for moments that matter</h2>
+            <div class="use-cases-grid">
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Confidential Discussions</h3>
+                        <p>Share sensitive information without leaving a digital trail. Perfect for HR, legal, and executive conversations.</p>
+                    </div>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Project Coordination</h3>
+                        <p>Quick planning sessions without cluttering permanent channels. Organize, execute, and move on.</p>
+                    </div>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Brainstorming Sessions</h3>
+                        <p>Free-flowing ideas without the pressure of permanent documentation. Think freely, collaborate openly.</p>
+                    </div>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Study Groups</h3>
+                        <p>Temporary collaboration spaces for students. Connect for assignments, then let the room disappear.</p>
+                    </div>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Event Planning</h3>
+                        <p>Coordinate parties, gatherings, or meetups. No need to keep planning chats after the event ends.</p>
+                    </div>
+                </div>
+                <div class="use-case-card">
+                    <div class="use-case-content">
+                        <h3>Client Meetings</h3>
+                        <p>Quick client discussions without requiring them to create accounts or install apps.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class="how-works">
+        <h2 class="section-title">Simple by design</h2>
+        <p class="section-description">Three steps to secure, ephemeral conversations</p>
+        <div class="steps-container">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Create or Join</h3>
+                <p>Start a new moment with custom settings, or enter a 6-character code to join an existing room.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Collaborate</h3>
+                <p>Chat in real-time with your team. Share ideas, coordinate plans, make decisions together.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Let It Go</h3>
+                <p>When time expires or the group votes to close, everything disappears. No trace, no cleanup needed.</p>
+            </div>
+        </div>
+    </section>
+    <section class="cta-section">
+        <h2>Ready to start?</h2>
+        <p>Create your first moment in seconds</p>
+        <a href="/Room/Create" class="btn-primary">Get Started Free</a>
+    </section>
+    <footer>
+        <p>&copy; 2025 Moment. Conversations that disappear.</p>
+    </footer>
+</body>
+</html>

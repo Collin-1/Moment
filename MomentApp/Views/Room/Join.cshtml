@@ -1,0 +1,121 @@
+@model MomentApp.Models.JoinRoomViewModel
+@{
+    ViewData["Title"] = "Join a Moment";
+}
+
+<div class="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center px-4 py-12">
+    <div class="max-w-lg w-full">
+        <div class="bg-white rounded-lg shadow-xl p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <a href="@Url.Action("Index", "Home")" class="text-indigo-600 hover:text-indigo-700 text-sm">← Back to Home</a>
+                <h1 class="text-3xl font-bold text-gray-900 mt-4 mb-2">Join a Moment</h1>
+                <p class="text-gray-600">Enter the 6-character room code</p>
+            </div>
+
+            <!-- Form -->
+            <form asp-action="Join" method="post" class="space-y-6">
+                @Html.AntiForgeryToken()
+                
+                <!-- Room Code Input -->
+                <div>
+                    <label asp-for="RoomCode" class="block text-sm font-semibold text-gray-700 mb-2">
+                        Room Code
+                    </label>
+                    <input asp-for="RoomCode" 
+                           type="text" 
+                           maxlength="6"
+                           class="w-full px-4 py-4 text-center text-3xl font-bold tracking-widest border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none uppercase"
+                           placeholder="ABC123"
+                           style="text-transform: uppercase;" />
+                    <span asp-validation-for="RoomCode" class="text-red-500 text-sm block mt-2"></span>
+                </div>
+
+                <!-- Validation Summary -->
+                <div asp-validation-summary="All" class="bg-red-50 border-2 border-red-200 rounded-lg p-4 text-red-700 text-sm"></div>
+
+                <!-- Submit Button -->
+                <button type="submit" 
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-4 px-8 rounded-lg shadow-lg transform transition hover:scale-105">
+                    Continue
+                </button>
+            </form>
+
+            <!-- Help Text -->
+            <div class="mt-8 bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
+                <p class="text-gray-700 text-sm">
+                    <strong>💡 Tip:</strong> Room codes are 6 characters long and case-insensitive. 
+                    Ask the room creator to share the code or scan their QR code.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        // Auto-uppercase input
+        document.querySelector('input[name="RoomCode"]').addEventListener('input', function(e) {
+            e.target.value = e.target.value.toUpperCase();
+        });
+    </script>
+}
+
+<style>
+    .min-h-screen { min-height: 100vh; }
+    .bg-gradient-to-br { background: linear-gradient(to bottom right, var(--tw-gradient-stops)); }
+    .from-blue-50 { --tw-gradient-from: #eff6ff; --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to); }
+    .via-white { --tw-gradient-stops: var(--tw-gradient-from), #ffffff, var(--tw-gradient-to); }
+    .to-indigo-50 { --tw-gradient-to: #eef2ff; }
+    .flex { display: flex; }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .space-y-6 > * + * { margin-top: 1.5rem; }
+    .max-w-lg { max-width: 32rem; }
+    .w-full { width: 100%; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .p-4 { padding: 1rem; }
+    .p-8 { padding: 2rem; }
+    .px-8 { padding-left: 2rem; padding-right: 2rem; }
+    .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
+    .mb-2 { margin-bottom: 0.5rem; }
+    .mb-8 { margin-bottom: 2rem; }
+    .mt-2 { margin-top: 0.5rem; }
+    .mt-4 { margin-top: 1rem; }
+    .mt-8 { margin-top: 2rem; }
+    .text-center { text-align: center; }
+    .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+    .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+    .font-semibold { font-weight: 600; }
+    .font-bold { font-weight: 700; }
+    .text-white { color: white; }
+    .text-gray-600 { color: #4b5563; }
+    .text-gray-700 { color: #374151; }
+    .text-gray-900 { color: #111827; }
+    .text-indigo-600 { color: #4f46e5; }
+    .text-red-500 { color: #ef4444; }
+    .text-red-700 { color: #b91c1c; }
+    .bg-white { background-color: white; }
+    .bg-gray-50 { background-color: #f9fafb; }
+    .bg-red-50 { background-color: #fef2f2; }
+    .bg-indigo-600 { background-color: #4f46e5; }
+    .hover\:bg-indigo-700:hover { background-color: #4338ca; }
+    .hover\:text-indigo-700:hover { color: #4338ca; }
+    .rounded-lg { border-radius: 0.5rem; }
+    .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+    .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .border-2 { border-width: 2px; }
+    .border-gray-200 { border-color: #e5e7eb; }
+    .border-gray-300 { border-color: #d1d5db; }
+    .border-red-200 { border-color: #fecaca; }
+    .focus\:border-indigo-500:focus { border-color: #6366f1; }
+    .focus\:outline-none:focus { outline: 2px solid transparent; }
+    .block { display: block; }
+    .tracking-widest { letter-spacing: 0.1em; }
+    .uppercase { text-transform: uppercase; }
+    .transform { transform: translateX(0); }
+    .transition { transition: all 0.3s; }
+    .hover\:scale-105:hover { transform: scale(1.05); }
+</style>

@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MomentApp", "MomentApp\MomentApp.csproj", "{EFA2240A-7F60-0567-D656-E627121D0BA3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EFA2240A-7F60-0567-D656-E627121D0BA3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFA2240A-7F60-0567-D656-E627121D0BA3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFA2240A-7F60-0567-D656-E627121D0BA3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFA2240A-7F60-0567-D656-E627121D0BA3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {53C9B98C-11AA-411A-9477-565CB6DECC99}
+	EndGlobalSection
+EndGlobal

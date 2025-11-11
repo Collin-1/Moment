@@ -1,0 +1,558 @@
+@model MomentApp.Models.ChatRoomViewModel
+@{
+    ViewData["Title"] = !string.IsNullOrEmpty(Model.Room.Name) ? Model.Room.Name : $"Room {Model.Room.Id}";
+    var timeRemaining = Model.Room.ExpiresAt - DateTime.UtcNow;
+    Layout = null; // Don't use layout
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Moment</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100%; overflow: hidden; }
+        .chat-container { display: flex; height: 100%; background: #f9fafb; }
+        
+        /* Custom Scrollbar */
+        .messages-area::-webkit-scrollbar { width: 8px; }
+        .messages-area::-webkit-scrollbar-track { background: #f1f1f1; }
+        .messages-area::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
+        .messages-area::-webkit-scrollbar-thumb:hover { background: #555; }
+        
+        /* Sidebar */
+        .sidebar { width: 320px; background: white; border-right: 2px solid #e5e7eb; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 1.5rem; border-bottom: 2px solid #e5e7eb; }
+        .room-code { font-size: 1.5rem; font-weight: 700; color: #4f46e5; letter-spacing: 0.05em; }
+        .room-name { font-size: 0.875rem; color: #6b7280; margin-top: 0.25rem; }
+        
+        .timer-section { padding: 1.5rem; border-bottom: 2px solid #e5e7eb; text-align: center; }
+        .timer-display { font-size: 2rem; font-weight: 700; color: #111827; }
+        .timer-label { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+        .timer-warning { color: #f59e0b; }
+        .timer-critical { color: #ef4444; animation: pulse 1s infinite; }
+        
+        @@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+        
+        .participants-section { flex: 1; overflow-y: auto; padding: 1rem; }
+        .participants-title { font-size: 0.875rem; font-weight: 600; color: #374151; margin-bottom: 0.75rem; }
+        .participant { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
+        .participant-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+        .dot-online { background: #10b981; }
+        .dot-away { background: #f59e0b; }
+        .dot-offline { background: #ef4444; }
+        .participant-color { width: 2rem; height: 2rem; border-radius: 50%; }
+        .participant-name { font-weight: 500; color: #111827; flex: 1; }
+        
+        .vote-section { padding: 1rem; border-top: 2px solid #e5e7eb; }
+        .vote-btn { width: 100%; background: #4f46e5; color: white; font-weight: 600; padding: 0.75rem; border: none; border-radius: 0.5rem; cursor: pointer; }
+        .vote-btn:hover { background: #4338ca; }
+        .leave-btn { width: 100%; background: white; color: #ef4444; font-weight: 600; padding: 0.75rem; border: 2px solid #ef4444; border-radius: 0.5rem; cursor: pointer; margin-top: 0.5rem; }
+        .leave-btn:hover { background: #fef2f2; }
+        
+        .vote-panel { background: #fef3c7; border: 2px solid #fbbf24; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .vote-panel h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }
+        .vote-status { font-size: 0.75rem; color: #92400e; margin-bottom: 0.75rem; }
+        .vote-buttons { display: flex; gap: 0.5rem; }
+        .vote-yes, .vote-no { flex: 1; padding: 0.5rem; border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer; }
+        .vote-yes { background: #10b981; color: white; }
+        .vote-no { background: #ef4444; color: white; }
+        
+        /* Main Chat Area */
+        .main-chat { 
+            flex: 1; 
+            display: flex; 
+            flex-direction: column; 
+            min-height: 0; 
+            max-height: 100vh;
+            position: relative; 
+        }
+        .chat-header { background: white; padding: 1rem 1.5rem; border-bottom: 2px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .chat-title { font-size: 1.25rem; font-weight: 700; color: #111827; }
+        .share-btn { background: #4f46e5; color: white; padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+        
+        .messages-area { 
+            flex: 1; 
+            overflow-y: scroll !important; 
+            overflow-x: hidden; 
+            padding: 1.5rem; 
+            scroll-behavior: smooth; 
+            min-height: 0; 
+            max-height: calc(100vh - 200px);
+        }
+        .message { margin-bottom: 1rem; max-width: 70%; flex-shrink: 0; }
+        .message-user { margin-left: auto; }
+        .message-other { margin-right: auto; }
+        .message-system { text-align: center; margin: 0 auto; max-width: 100%; }
+        
+        .message-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+        .message-color { width: 1.25rem; height: 1.25rem; border-radius: 50%; }
+        .message-name { font-weight: 600; font-size: 0.875rem; }
+        .message-time { font-size: 0.75rem; color: #6b7280; margin-left: auto; }
+        
+        .message-content { background: white; padding: 0.75rem 1rem; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .message-user .message-content { background: #4f46e5; color: white; }
+        .message-system .message-content { background: #f3f4f6; color: #6b7280; text-align: center; font-size: 0.875rem; }
+        
+        .typing-indicator { padding: 0 1.5rem; color: #6b7280; font-size: 0.875rem; font-style: italic; height: 1.5rem; flex-shrink: 0; }
+        
+        .message-input-area { background: white; padding: 1rem 1.5rem; border-top: 2px solid #e5e7eb; flex-shrink: 0; position: sticky; bottom: 0; z-index: 10; }
+        .message-input-form { display: flex; gap: 0.75rem; align-items: center; }
+        .message-input { flex: 1; padding: 0.75rem 1rem; border: 2px solid #e5e7eb; border-radius: 0.5rem; font-size: 1rem; min-height: 2.75rem; }
+        .message-input:focus { outline: none; border-color: #4f46e5; }
+        .send-btn { background: #4f46e5; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; }
+        .send-btn:hover { background: #4338ca; }
+        .send-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+        
+        /* Notifications */
+        .notification { position: fixed; top: 1rem; right: 1rem; background: white; padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); z-index: 1000; display: none; }
+        .notification.show { display: block; animation: slideIn 0.3s; }
+        @@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        
+        /* Mobile Responsive */
+        @@media (max-width: 768px) {
+            .sidebar { position: absolute; left: -100%; width: 80%; max-width: 320px; z-index: 100; transition: left 0.3s; }
+            .sidebar.open { left: 0; }
+            .mobile-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
+            .mobile-overlay.show { display: block; }
+        }
+        
+        .reconnecting-banner { background: #fbbf24; color: #92400e; text-align: center; padding: 0.5rem; font-weight: 600; display: none; }
+        .reconnecting-banner.show { display: block; }
+        
+        /* Scroll to bottom button */
+        .scroll-to-bottom { position: absolute; bottom: 6rem; right: 2rem; background: #4f46e5; color: white; border: none; border-radius: 50%; width: 3rem; height: 3rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: none; font-size: 1.5rem; align-items: center; justify-content: center; z-index: 5; }
+        .scroll-to-bottom.show { display: flex; }
+        .scroll-to-bottom:hover { background: #4338ca; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+    <div class="reconnecting-banner" id="reconnectingBanner">
+        Reconnecting...
+    </div>
+    
+    <div class="chat-container">
+        <!-- Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="room-code">@Model.Room.Id</div>
+                @if (!string.IsNullOrEmpty(Model.Room.Name))
+                {
+                    <div class="room-name">@Model.Room.Name</div>
+                }
+            </div>
+            
+            <div class="timer-section">
+                <div class="timer-display" id="timerDisplay">
+                    @if (timeRemaining.TotalHours >= 1)
+                    {
+                        <text>@((int)timeRemaining.TotalHours)h @(timeRemaining.Minutes)m</text>
+                    }
+                    else
+                    {
+                        <text>@(timeRemaining.Minutes)m @(timeRemaining.Seconds)s</text>
+                    }
+                </div>
+                <div class="timer-label">Time Remaining</div>
+            </div>
+            
+            <div class="participants-section">
+                <div class="participants-title">👥 Participants (<span id="participantCount">@Model.Room.Participants.Count(p => !p.HasLeft)</span>)</div>
+                <div id="participantsList">
+                    @foreach (var p in Model.Room.Participants.Where(p => !p.HasLeft))
+                    {
+                        <div class="participant" data-participant-id="@p.Id">
+                            <div class="participant-dot @(p.Status == ParticipantStatus.Online ? "dot-online" : p.Status == ParticipantStatus.Away ? "dot-away" : "dot-offline")"></div>
+                            <div class="participant-color" style="background-color: @p.ColorHex;"></div>
+                            <div class="participant-name">@p.DisplayName @(p.Id == Model.CurrentParticipant.Id ? "(You)" : "")</div>
+                        </div>
+                    }
+                </div>
+            </div>
+            
+            <div class="vote-section">
+                <div id="votePanel" style="display: none;"></div>
+                <button class="vote-btn" id="voteBtn" onclick="initiateVote()">Vote to Close Room</button>
+                <button class="leave-btn" onclick="leaveRoom()">Leave Room</button>
+            </div>
+        </div>
+        
+        <!-- Main Chat -->
+        <div class="main-chat">
+            <div class="chat-header">
+                <div class="chat-title">💬 Chat</div>
+                <button class="share-btn" onclick="shareRoom()">Share Room</button>
+            </div>
+            
+            <div class="messages-area" id="messagesArea">
+                <!-- Messages will be inserted here -->
+            </div>
+            
+            <button class="scroll-to-bottom" id="scrollToBottomBtn" onclick="scrollToBottom()" title="Scroll to bottom">↓</button>
+            
+            <div class="typing-indicator" id="typingIndicator"></div>
+            
+            <div class="message-input-area">
+                <form class="message-input-form" onsubmit="return sendMessage(event)">
+                    <input type="text" 
+                           class="message-input" 
+                           id="messageInput" 
+                           placeholder="Type a message..." 
+                           maxlength="2000"
+                           autocomplete="off" />
+                    <button type="submit" class="send-btn" id="sendBtn">Send</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
+    <div class="notification" id="notification"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script>
+        const roomId = '@Model.Room.Id';
+        const participantId = '@Model.CurrentParticipant.Id';
+        const participantName = '@Model.CurrentParticipant.DisplayName';
+        const participantColor = '@Model.CurrentParticipant.ColorHex';
+        
+        let chatConnection, roomConnection;
+        let typingTimeout;
+        let isTyping = false;
+        
+        // Initialize SignalR connections
+        async function initializeConnections() {
+            // Chat Hub
+            chatConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/chat")
+                .withAutomaticReconnect()
+                .build();
+            
+            // Room Hub
+            roomConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/hubs/room")
+                .withAutomaticReconnect()
+                .build();
+            
+            setupChatHandlers();
+            setupRoomHandlers();
+            
+            try {
+                await chatConnection.start();
+                await roomConnection.start();
+                await chatConnection.invoke("JoinChatRoom", roomId);
+                await roomConnection.invoke("JoinRoom", roomId, participantId);
+                console.log("Connected to SignalR");
+            } catch (err) {
+                console.error("Error connecting:", err);
+                showNotification("Connection error. Please refresh the page.");
+            }
+        }
+        
+        function setupChatHandlers() {
+            chatConnection.on("ReceiveMessage", (message) => {
+                addMessage(message);
+            });
+            
+            chatConnection.on("UserTyping", (userName) => {
+                if (userName !== participantName) {
+                    showTyping(userName);
+                }
+            });
+            
+            chatConnection.on("UserStoppedTyping", (userName) => {
+                hideTyping(userName);
+            });
+            
+            chatConnection.on("Error", (errorMessage) => {
+                showNotification(errorMessage);
+            });
+            
+            chatConnection.onreconnecting(() => {
+                document.getElementById("reconnectingBanner").classList.add("show");
+            });
+            
+            chatConnection.onreconnected(() => {
+                document.getElementById("reconnectingBanner").classList.remove("show");
+            });
+        }
+        
+        function setupRoomHandlers() {
+            roomConnection.on("UserJoined", (participant) => {
+                updateParticipantsList();
+            });
+            
+            roomConnection.on("UserLeft", (participantId) => {
+                updateParticipantsList();
+            });
+            
+            roomConnection.on("ParticipantStatusChanged", (participantId, status) => {
+                updateParticipantStatus(participantId, status);
+            });
+            
+            roomConnection.on("TimerUpdate", (secondsRemaining) => {
+                updateTimer(secondsRemaining);
+            });
+            
+            roomConnection.on("ExpiryWarning", (minutes) => {
+                showNotification(`⚠️ This room will expire in ${minutes} minute${minutes > 1 ? 's' : ''}!`);
+            });
+            
+            roomConnection.on("RoomClosed", () => {
+                window.location.href = '@Url.Action("Closed", "Room")';
+            });
+            
+            roomConnection.on("VoteStarted", (initiatorName) => {
+                showNotification(`🗳️ ${initiatorName} started a vote to close the room`);
+            });
+            
+            roomConnection.on("VoteUpdated", (voteStatus) => {
+                updateVotePanel(voteStatus);
+            });
+            
+            roomConnection.on("VotePassed", () => {
+                showNotification("✅ Vote passed! Room will close in 5 minutes.");
+            });
+            
+            roomConnection.on("RoomState", (state) => {
+                // Initial room state received
+                state.messages.forEach(msg => addMessage(msg));
+                // Scroll to bottom after loading all initial messages
+                const messagesArea = document.getElementById("messagesArea");
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            });
+        }
+        
+        async function sendMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById("messageInput");
+            const message = input.value.trim();
+            
+            if (!message) return false;
+            
+            try {
+                await chatConnection.invoke("SendMessage", roomId, participantId, message);
+                input.value = "";
+                if (isTyping) {
+                    await chatConnection.invoke("StopTyping", roomId, participantId);
+                    isTyping = false;
+                }
+            } catch (err) {
+                console.error("Error sending message:", err);
+                showNotification("Failed to send message");
+            }
+            
+            return false;
+        }
+        
+        function addMessage(message) {
+            const messagesArea = document.getElementById("messagesArea");
+            const messageDiv = document.createElement("div");
+            
+            // Check if user is scrolled near the bottom (within 100px)
+            const isScrolledToBottom = messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight < 100;
+            
+            if (message.type === 1) { // System message
+                messageDiv.className = "message message-system";
+                messageDiv.innerHTML = `
+                    <div class="message-content">${escapeHtml(message.content)}</div>
+                `;
+            } else {
+                const isOwn = message.senderId === participantId;
+                messageDiv.className = `message ${isOwn ? 'message-user' : 'message-other'}`;
+                
+                messageDiv.innerHTML = `
+                    ${!isOwn ? `<div class="message-header">
+                        <div class="message-color" style="background-color: ${message.senderColor};"></div>
+                        <div class="message-name" style="color: ${message.senderColor};">${escapeHtml(message.senderName)}</div>
+                    </div>` : ''}
+                    <div class="message-content">${message.content}</div>
+                    <div class="message-time">${formatTime(message.timestamp)}</div>
+                `;
+            }
+            
+            messagesArea.appendChild(messageDiv);
+            
+            // Only auto-scroll if user was already at the bottom or if it's their own message
+            if (isScrolledToBottom || message.senderId === participantId) {
+                messagesArea.scrollTop = messagesArea.scrollHeight;
+            }
+        }
+        
+        function updateTimer(secondsRemaining) {
+            const timerDisplay = document.getElementById("timerDisplay");
+            const hours = Math.floor(secondsRemaining / 3600);
+            const minutes = Math.floor((secondsRemaining % 3600) / 60);
+            const seconds = secondsRemaining % 60;
+            
+            if (hours >= 1) {
+                timerDisplay.textContent = `${hours}h ${minutes}m`;
+            } else {
+                timerDisplay.textContent = `${minutes}m ${seconds}s`;
+            }
+            
+            timerDisplay.className = "timer-display";
+            if (secondsRemaining <= 300) { // 5 minutes
+                timerDisplay.className += " timer-critical";
+            } else if (secondsRemaining <= 600) { // 10 minutes
+                timerDisplay.className += " timer-warning";
+            }
+        }
+        
+        async function initiateVote() {
+            try {
+                await roomConnection.invoke("InitiateVote", roomId);
+            } catch (err) {
+                console.error("Error initiating vote:", err);
+            }
+        }
+        
+        async function castVote(voteYes) {
+            try {
+                await roomConnection.invoke("CastVote", roomId, voteYes);
+            } catch (err) {
+                console.error("Error casting vote:", err);
+            }
+        }
+        
+        function updateVotePanel(voteStatus) {
+            if (!voteStatus) return;
+            
+            const votePanel = document.getElementById("votePanel");
+            const percentage = Math.round(voteStatus.yesPercentage);
+            
+            let votesHtml = '<div class="vote-status">';
+            for (let [name, vote] of Object.entries(voteStatus.participantVotes)) {
+                const icon = vote === true ? '✅' : vote === false ? '❌' : '⏳';
+                votesHtml += `${icon} ${name}<br>`;
+            }
+            votesHtml += '</div>';
+            
+            votePanel.innerHTML = `
+                <h3>🗳️ Vote to Close Room</h3>
+                <div class="vote-status">
+                    ${voteStatus.yesVotes} of ${voteStatus.totalParticipants} voted Yes (${percentage}%)
+                </div>
+                ${votesHtml}
+                ${!voteStatus.hasPassed ? `
+                    <div class="vote-buttons">
+                        <button class="vote-yes" onclick="castVote(true)">✅ Yes</button>
+                        <button class="vote-no" onclick="castVote(false)">❌ No</button>
+                    </div>
+                ` : '<div style="color: #10b981; font-weight: 600;">✅ Vote Passed!</div>'}
+            `;
+            votePanel.style.display = "block";
+            document.getElementById("voteBtn").style.display = "none";
+        }
+        
+        async function leaveRoom() {
+            if (confirm("Leave this room permanently? You won't be able to rejoin.")) {
+                try {
+                    await roomConnection.invoke("LeaveRoom", roomId);
+                    window.location.href = '@Url.Action("Index", "Home")';
+                } catch (err) {
+                    console.error("Error leaving room:", err);
+                }
+            }
+        }
+        
+        function shareRoom() {
+            const link = window.location.href;
+            if (navigator.share) {
+                navigator.share({ title: 'Join my Moment chat', text: 'Join my chat room!', url: link });
+            } else {
+                navigator.clipboard.writeText(link);
+                showNotification("Link copied to clipboard!");
+            }
+        }
+        
+        function showTyping(userName) {
+            const indicator = document.getElementById("typingIndicator");
+            indicator.textContent = `${userName} is typing...`;
+        }
+        
+        function hideTyping(userName) {
+            const indicator = document.getElementById("typingIndicator");
+            indicator.textContent = "";
+        }
+        
+        function showNotification(message) {
+            const notification = document.getElementById("notification");
+            notification.textContent = message;
+            notification.classList.add("show");
+            setTimeout(() => notification.classList.remove("show"), 5000);
+        }
+        
+        function updateParticipantsList() {
+            // Simplified - would need to fetch updated list from server
+        }
+        
+        function updateParticipantStatus(participantId, status) {
+            const participant = document.querySelector(`[data-participant-id="${participantId}"]`);
+            if (participant) {
+                const dot = participant.querySelector(".participant-dot");
+                dot.className = "participant-dot " + 
+                    (status === 0 ? "dot-online" : status === 1 ? "dot-away" : "dot-offline");
+            }
+        }
+        
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Scroll to bottom function
+        function scrollToBottom() {
+            const messagesArea = document.getElementById("messagesArea");
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        }
+        
+        // Monitor scroll position to show/hide scroll-to-bottom button
+        document.addEventListener("DOMContentLoaded", () => {
+            const messagesArea = document.getElementById("messagesArea");
+            const scrollBtn = document.getElementById("scrollToBottomBtn");
+            
+            messagesArea.addEventListener("scroll", () => {
+                const isScrolledToBottom = messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight < 100;
+                if (isScrolledToBottom) {
+                    scrollBtn.classList.remove("show");
+                } else {
+                    scrollBtn.classList.add("show");
+                }
+            });
+        });
+        
+        // Typing indicator
+        document.getElementById("messageInput").addEventListener("input", async () => {
+            if (!isTyping) {
+                isTyping = true;
+                await chatConnection.invoke("StartTyping", roomId, participantId);
+            }
+            
+            clearTimeout(typingTimeout);
+            typingTimeout = setTimeout(async () => {
+                isTyping = false;
+                await chatConnection.invoke("StopTyping", roomId, participantId);
+            }, 1000);
+        });
+        
+        // Initialize on load
+        window.addEventListener("load", initializeConnections);
+        
+        // Activity heartbeat
+        setInterval(async () => {
+            if (roomConnection.state === signalR.HubConnectionState.Connected) {
+                await roomConnection.invoke("UpdateActivity", roomId);
+            }
+        }, 30000); // Every 30 seconds
+    </script>
+</body>
+</html>
