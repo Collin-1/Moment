@@ -46,7 +46,7 @@ public class ChatHub : Hub
             if (_lastMessageTime.TryGetValue(key, out var lastTime))
             {
                 var timeSinceLastMessage = DateTime.UtcNow - lastTime;
-                if (timeSinceLastMessage.TotalSeconds < 6) // 10 messages per minute = 1 every 6 seconds
+                if (timeSinceLastMessage.TotalSeconds < 1) // 1 message per second
                 {
                     await Clients.Caller.SendAsync("Error", "You're sending messages too quickly. Please slow down.");
                     return;
