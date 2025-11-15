@@ -1,0 +1,13 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/node_modules
+**/.DS_Store
+**/appsettings.Development.json
+**/*.md
+**/Dockerfile
+**/.dockerignore

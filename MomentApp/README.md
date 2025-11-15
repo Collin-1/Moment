@@ -150,13 +150,21 @@ MomentApp/
 
 ### Security Features
 
-- **Rate Limiting** - 10 messages per minute per user
+- **Rate Limiting** - 1 message per second per user
 - **Input Sanitization** - XSS protection via HTML encoding
 - **CSRF Protection** - Anti-forgery tokens on all forms
 - **Content Validation** - Max 2000 characters per message
 - **Collision-Safe Codes** - Unique room code generation
 
 ## 🎨 UI/UX Features
+
+### Modern Design
+
+- Dark theme with green accent colors (#1ed760 primary, #4ECDC4 secondary)
+- Pattern background across all pages
+- Semi-transparent message area with backdrop blur
+- Smooth transitions and hover effects
+- Gradient effects on feature cards
 
 ### Responsive Design
 
@@ -168,17 +176,22 @@ MomentApp/
 
 - Instant message delivery
 - Live timer countdown
-- Dynamic participant list
+- Dynamic participant list with join/leave notifications
 - Typing indicators
 - Connection status indicators
+- Automatic participant list updates
 
 ### Visual Feedback
 
-- Color-coded messages
+- Modern dark theme with pattern background
+- Turquoise message bubbles for current user
+- Color-coded messages from other participants
+- Real-time participant list updates
 - Status dots (green/yellow/red)
 - Timer color changes (normal/yellow/red)
 - Notification toasts
 - Reconnecting banners
+- Typing indicators
 
 ## 🧪 Testing
 
