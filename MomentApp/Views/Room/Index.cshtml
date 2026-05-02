@@ -69,6 +69,16 @@
         .vote-btn:hover { background: #1bc956; transform: translateY(-2px); }
         .leave-btn { width: 100%; background: transparent; color: #ef4444; font-weight: 600; padding: 0.75rem; border: 2px solid #ef4444; border-radius: 0.5rem; cursor: pointer; margin-top: 0.5rem; transition: all 0.3s; }
         .leave-btn:hover { background: rgba(239, 68, 68, 0.1); }
+
+        .voice-section { padding: 1rem; border-top: 2px solid var(--border); }
+        .voice-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
+        .voice-status { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
+        .voice-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
+        .voice-btn { width: 100%; background: var(--secondary); color: #000; font-weight: 700; padding: 0.6rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
+        .voice-btn:hover { background: #55dad2; transform: translateY(-1px); }
+        .voice-btn.voice-secondary { background: transparent; color: var(--text); border: 2px solid var(--border); font-weight: 600; }
+        .voice-btn.voice-secondary:hover { border-color: var(--secondary); color: var(--secondary); }
+        .voice-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         
         .vote-panel { background: rgba(251, 191, 36, 0.2); border: 2px solid #fbbf24; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
         .vote-panel h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
@@ -195,6 +205,19 @@
                     }
                 </div>
             </div>
+
+            <div class="voice-section">
+                <div class="voice-header">
+                    <span>🎙️ Voice Call</span>
+                    <span><span id="voiceCount">0</span>/10</span>
+                </div>
+                <div class="voice-status" id="voiceStatus">Not connected</div>
+                <div class="voice-buttons">
+                    <button class="voice-btn" id="joinVoiceBtn" onclick="joinVoice()">Join Voice</button>
+                    <button class="voice-btn voice-secondary" id="leaveVoiceBtn" onclick="leaveVoice()" disabled>Leave Voice</button>
+                    <button class="voice-btn voice-secondary" id="muteVoiceBtn" onclick="toggleMute()" disabled>Mute</button>
+                </div>
+            </div>
             
             <div class="vote-section">
                 <div id="votePanel" style="display: none;"></div>
@@ -234,6 +257,7 @@
     
     <div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
     <div class="notification" id="notification"></div>
+    <div id="voiceAudioContainer" style="display: none;"></div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script>
@@ -245,6 +269,19 @@
         let chatConnection, roomConnection;
         let typingTimeout;
         let isTyping = false;
+
+        const voiceConfig = {
+            iceServers: [
+                { urls: "stun:stun.l.google.com:19302" },
+                { urls: "stun:stun1.l.google.com:19302" }
+            ]
+        };
+        const voiceParticipantIds = new Set();
+        const peerConnections = new Map();
+        const remoteAudioElements = new Map();
+        let localStream = null;
+        let isInVoice = false;
+        let isMuted = false;
         
         // Initialize SignalR connections
         async function initializeConnections() {
@@ -329,6 +366,7 @@
             });
             
             roomConnection.on("RoomClosed", () => {
+                cleanupVoice();
                 window.location.href = '@Url.Action("Closed", "Room")';
             });
             
@@ -343,6 +381,42 @@
             roomConnection.on("VotePassed", () => {
                 showNotification("✅ Vote passed! Room will close in 5 minutes.");
             });
+
+            roomConnection.on("VoiceJoined", async (payload) => {
+                isInVoice = true;
+                voiceParticipantIds.clear();
+                voiceParticipantIds.add(participantId);
+                (payload.participants || []).forEach(p => voiceParticipantIds.add(p.id));
+                updateVoiceUi("Connected");
+
+                for (const p of (payload.participants || [])) {
+                    await createOfferTo(p.id);
+                }
+            });
+
+            roomConnection.on("VoiceParticipantJoined", (participant) => {
+                voiceParticipantIds.add(participant.id);
+                updateVoiceUi("Connected");
+            });
+
+            roomConnection.on("VoiceParticipantLeft", (leftParticipantId, participantName) => {
+                voiceParticipantIds.delete(leftParticipantId);
+                closePeerConnection(leftParticipantId);
+                updateVoiceUi(isInVoice ? "Connected" : "Not connected");
+                if (participantName && leftParticipantId !== participantId) {
+                    showNotification(`🎙️ ${participantName} left the voice call`);
+                }
+            });
+
+            roomConnection.on("VoiceSignal", async (signal) => {
+                if (!isInVoice) return;
+                await handleVoiceSignal(signal);
+            });
+
+            roomConnection.on("VoiceError", (message) => {
+                showNotification(message || "Voice error");
+                cleanupVoice();
+            });
             
             roomConnection.on("RoomState", (state) => {
                 // Initial room state received
@@ -350,6 +424,12 @@
                 // Scroll to bottom after loading all initial messages
                 const messagesArea = document.getElementById("messagesArea");
                 messagesArea.scrollTop = messagesArea.scrollHeight;
+
+                if (state.voiceParticipants) {
+                    voiceParticipantIds.clear();
+                    state.voiceParticipants.forEach(p => voiceParticipantIds.add(p.id));
+                    updateVoiceUi(isInVoice ? "Connected" : "Not connected");
+                }
             });
         }
         
@@ -478,6 +558,9 @@
         async function leaveRoom() {
             if (confirm("Leave this room permanently? You won't be able to rejoin.")) {
                 try {
+                    if (isInVoice) {
+                        await leaveVoice();
+                    }
                     await roomConnection.invoke("LeaveRoom", roomId);
                     window.location.href = '@Url.Action("Index", "Home")';
                 } catch (err) {
@@ -494,6 +577,180 @@
                 navigator.clipboard.writeText(link);
                 showNotification("Link copied to clipboard!");
             }
+        }
+
+        async function joinVoice() {
+            if (isInVoice) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showNotification("Voice calling is not supported in this browser.");
+                return;
+            }
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                isMuted = false;
+                updateMuteUi();
+                await roomConnection.invoke("JoinVoice", roomId, participantId);
+            } catch (err) {
+                console.error("Voice join error:", err);
+                showNotification("Microphone access is required to join the call.");
+                cleanupVoice();
+            }
+        }
+
+        async function leaveVoice() {
+            if (!isInVoice && !localStream) return;
+            try {
+                await roomConnection.invoke("LeaveVoice", roomId, participantId);
+            } catch (err) {
+                console.error("Voice leave error:", err);
+            }
+            cleanupVoice();
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+            updateMuteUi();
+        }
+
+        function updateVoiceUi(statusText) {
+            const voiceStatus = document.getElementById("voiceStatus");
+            const joinBtn = document.getElementById("joinVoiceBtn");
+            const leaveBtn = document.getElementById("leaveVoiceBtn");
+            const muteBtn = document.getElementById("muteVoiceBtn");
+            const countEl = document.getElementById("voiceCount");
+
+            countEl.textContent = voiceParticipantIds.size;
+            voiceStatus.textContent = statusText;
+            joinBtn.disabled = isInVoice;
+            leaveBtn.disabled = !isInVoice;
+            muteBtn.disabled = !isInVoice;
+        }
+
+        function updateMuteUi() {
+            const muteBtn = document.getElementById("muteVoiceBtn");
+            if (!muteBtn) return;
+            muteBtn.textContent = isMuted ? "Unmute" : "Mute";
+        }
+
+        async function createOfferTo(remoteParticipantId) {
+            const pc = await createPeerConnection(remoteParticipantId);
+            const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            await pc.setLocalDescription(offer);
+            await sendVoiceSignal(remoteParticipantId, "offer", pc.localDescription);
+        }
+
+        async function handleVoiceSignal(signal) {
+            const fromId = signal.fromParticipantId;
+            const type = signal.type;
+            const payload = JSON.parse(signal.data);
+
+            const pc = await createPeerConnection(fromId);
+
+            if (type === "offer") {
+                await pc.setRemoteDescription(new RTCSessionDescription(payload));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                await sendVoiceSignal(fromId, "answer", pc.localDescription);
+            } else if (type === "answer") {
+                await pc.setRemoteDescription(new RTCSessionDescription(payload));
+            } else if (type === "ice") {
+                if (payload) {
+                    await pc.addIceCandidate(new RTCIceCandidate(payload));
+                }
+            }
+        }
+
+        async function sendVoiceSignal(toParticipantId, type, payload) {
+            await roomConnection.invoke(
+                "SendVoiceSignal",
+                roomId,
+                participantId,
+                toParticipantId,
+                type,
+                JSON.stringify(payload)
+            );
+        }
+
+        async function createPeerConnection(remoteParticipantId) {
+            if (peerConnections.has(remoteParticipantId)) {
+                return peerConnections.get(remoteParticipantId);
+            }
+
+            const pc = new RTCPeerConnection(voiceConfig);
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+            }
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    sendVoiceSignal(remoteParticipantId, "ice", event.candidate);
+                }
+            };
+
+            pc.ontrack = (event) => {
+                attachRemoteStream(remoteParticipantId, event.streams[0]);
+            };
+
+            pc.onconnectionstatechange = () => {
+                if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
+                    closePeerConnection(remoteParticipantId);
+                }
+            };
+
+            peerConnections.set(remoteParticipantId, pc);
+            return pc;
+        }
+
+        function attachRemoteStream(remoteParticipantId, stream) {
+            if (remoteAudioElements.has(remoteParticipantId)) {
+                remoteAudioElements.get(remoteParticipantId).srcObject = stream;
+                return;
+            }
+
+            const audio = document.createElement("audio");
+            audio.autoplay = true;
+            audio.playsInline = true;
+            audio.srcObject = stream;
+            audio.dataset.participantId = remoteParticipantId;
+
+            document.getElementById("voiceAudioContainer").appendChild(audio);
+            remoteAudioElements.set(remoteParticipantId, audio);
+        }
+
+        function closePeerConnection(remoteParticipantId) {
+            const pc = peerConnections.get(remoteParticipantId);
+            if (pc) {
+                pc.close();
+                peerConnections.delete(remoteParticipantId);
+            }
+
+            const audio = remoteAudioElements.get(remoteParticipantId);
+            if (audio) {
+                audio.srcObject = null;
+                audio.remove();
+                remoteAudioElements.delete(remoteParticipantId);
+            }
+        }
+
+        function cleanupVoice() {
+            isInVoice = false;
+            voiceParticipantIds.delete(participantId);
+            updateVoiceUi("Not connected");
+
+            peerConnections.forEach((_, id) => closePeerConnection(id));
+            peerConnections.clear();
+
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+            }
+
+            isMuted = false;
+            updateMuteUi();
         }
         
         function showTyping(userName) {
@@ -595,6 +852,8 @@
                     scrollBtn.classList.add("show");
                 }
             });
+
+            updateVoiceUi("Not connected");
         });
         
         // Typing indicator
