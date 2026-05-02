@@ -13,6 +13,7 @@ public class RoomHub : Hub
     private readonly IMessageService _messageService;
     private readonly IVotingService _votingService;
     private readonly ILogger<RoomHub> _logger;
+    private const int MaxVoiceParticipants = 10;
 
     public RoomHub(
         IRoomService roomService,
@@ -78,7 +79,10 @@ public class RoomHub : Hub
             {
                 participants = room.Participants.Where(p => !p.HasLeft).ToList(),
                 messages = room.Messages,
-                voteStatus = _votingService.GetVoteStatus(roomId)
+                voteStatus = _votingService.GetVoteStatus(roomId),
+                voiceParticipants = room.Participants
+                    .Where(p => !p.HasLeft && p.IsInVoice)
+                    .Select(p => new { p.Id, p.DisplayName })
             });
 
             _logger.LogInformation($"Participant {participant.DisplayName} joined room {roomId}");
@@ -101,6 +105,12 @@ public class RoomHub : Hub
             if (participant == null)
             {
                 return;
+            }
+
+            if (participant.IsInVoice)
+            {
+                participant.IsInVoice = false;
+                await Clients.Group(roomId).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
             }
 
             // Mark as left
@@ -218,6 +228,126 @@ public class RoomHub : Hub
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Join the room voice call
+    /// </summary>
+    public async Task JoinVoice(string roomId, string participantId)
+    {
+        try
+        {
+            var room = _roomService.GetRoom(roomId);
+            if (room == null)
+            {
+                await Clients.Caller.SendAsync("VoiceError", "Room not found");
+                return;
+            }
+
+            var participant = _roomService.GetParticipantByConnectionId(roomId, Context.ConnectionId);
+            if (participant == null || participant.Id != participantId)
+            {
+                await Clients.Caller.SendAsync("VoiceError", "Participant not found");
+                return;
+            }
+
+            if (participant.IsInVoice)
+            {
+                return;
+            }
+
+            var activeVoiceCount = room.Participants.Count(p => !p.HasLeft && p.IsInVoice);
+            if (activeVoiceCount >= MaxVoiceParticipants)
+            {
+                await Clients.Caller.SendAsync("VoiceError", $"Voice call is full (max {MaxVoiceParticipants})");
+                return;
+            }
+
+            participant.IsInVoice = true;
+
+            var otherVoiceParticipants = room.Participants
+                .Where(p => !p.HasLeft && p.IsInVoice && p.Id != participant.Id)
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToList();
+
+            await Clients.Caller.SendAsync("VoiceJoined", new
+            {
+                participants = otherVoiceParticipants,
+                maxParticipants = MaxVoiceParticipants
+            });
+
+            await Clients.OthersInGroup(roomId).SendAsync("VoiceParticipantJoined", new
+            {
+                id = participant.Id,
+                displayName = participant.DisplayName
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error joining voice");
+            await Clients.Caller.SendAsync("VoiceError", "Failed to join voice call");
+        }
+    }
+
+    /// <summary>
+    /// Leave the room voice call
+    /// </summary>
+    public async Task LeaveVoice(string roomId, string participantId)
+    {
+        try
+        {
+            var participant = _roomService.GetParticipantByConnectionId(roomId, Context.ConnectionId);
+            if (participant == null || participant.Id != participantId)
+            {
+                return;
+            }
+
+            if (!participant.IsInVoice)
+            {
+                return;
+            }
+
+            participant.IsInVoice = false;
+            await Clients.Group(roomId).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error leaving voice");
+            await Clients.Caller.SendAsync("VoiceError", "Failed to leave voice call");
+        }
+    }
+
+    /// <summary>
+    /// Relay WebRTC signaling data between participants
+    /// </summary>
+    public async Task SendVoiceSignal(string roomId, string fromParticipantId, string toParticipantId, string signalType, string signalData)
+    {
+        try
+        {
+            var sender = _roomService.GetParticipantByConnectionId(roomId, Context.ConnectionId);
+            if (sender == null || sender.Id != fromParticipantId || !sender.IsInVoice)
+            {
+                return;
+            }
+
+            var room = _roomService.GetRoom(roomId);
+            var target = room?.Participants.FirstOrDefault(p => p.Id == toParticipantId && !p.HasLeft && p.IsInVoice);
+            if (target == null || string.IsNullOrEmpty(target.ConnectionId))
+            {
+                return;
+            }
+
+            await Clients.Client(target.ConnectionId).SendAsync("VoiceSignal", new
+            {
+                fromParticipantId = sender.Id,
+                type = signalType,
+                data = signalData
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending voice signal");
+        }
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         // Find all rooms this connection is in and mark participant as offline
@@ -227,6 +357,12 @@ public class RoomHub : Hub
             var participant = room.Participants.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
             if (participant != null && !participant.HasLeft)
             {
+                if (participant.IsInVoice)
+                {
+                    participant.IsInVoice = false;
+                    await Clients.Group(room.Id).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
+                }
+
                 _roomService.UpdateParticipantStatus(room.Id, participant.Id, ParticipantStatus.Offline);
                 await Clients.OthersInGroup(room.Id).SendAsync("ParticipantStatusChanged", participant.Id, ParticipantStatus.Offline);
 
