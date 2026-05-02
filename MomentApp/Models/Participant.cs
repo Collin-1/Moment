@@ -49,4 +49,9 @@ public class Participant
     /// Whether this is the participant's first connection (not a reconnect/refresh)
     /// </summary>
     public bool IsFirstConnection { get; set; } = true;
+
+    /// <summary>
+    /// Whether the participant is currently connected to the voice call
+    /// </summary>
+    public bool IsInVoice { get; set; } = false;
 }
