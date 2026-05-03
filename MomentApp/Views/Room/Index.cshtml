@@ -79,6 +79,14 @@
         .voice-btn.voice-secondary { background: transparent; color: var(--text); border: 2px solid var(--border); font-weight: 600; }
         .voice-btn.voice-secondary:hover { border-color: var(--secondary); color: var(--secondary); }
         .voice-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .video-stage { background: rgba(42, 56, 80, 0.6); border-bottom: 2px solid var(--border); padding: 0.75rem 1rem; display: none; }
+        .video-stage.active { display: block; }
+        .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
+        .video-tile { position: relative; background: #111827; border-radius: 0.75rem; overflow: hidden; min-height: 120px; border: 1px solid rgba(255,255,255,0.08); }
+        .video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .video-label { position: absolute; left: 0.5rem; bottom: 0.5rem; font-size: 0.7rem; background: rgba(0,0,0,0.5); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
+        .video-local-badge { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.65rem; background: rgba(25,118,210,0.75); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
         
         .vote-panel { background: rgba(251, 191, 36, 0.2); border: 2px solid #fbbf24; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
         .vote-panel h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
@@ -214,6 +222,7 @@
                 <div class="voice-status" id="voiceStatus">Not connected</div>
                 <div class="voice-buttons">
                     <button class="voice-btn" id="joinVoiceBtn" onclick="joinVoice()">Join Voice</button>
+                    <button class="voice-btn" id="joinVideoBtn" onclick="joinVideo()">Join Video</button>
                     <button class="voice-btn voice-secondary" id="leaveVoiceBtn" onclick="leaveVoice()" disabled>Leave Voice</button>
                     <button class="voice-btn voice-secondary" id="muteVoiceBtn" onclick="toggleMute()" disabled>Mute</button>
                 </div>
@@ -231,6 +240,10 @@
             <div class="chat-header">
                 <div class="chat-title">💬 Chat</div>
                 <button class="share-btn" onclick="shareRoom()">Share Room</button>
+            </div>
+
+            <div class="video-stage" id="videoStage">
+                <div class="video-grid" id="videoGrid"></div>
             </div>
             
             <div class="messages-area" id="messagesArea">
@@ -277,11 +290,16 @@
             ]
         };
         const voiceParticipantIds = new Set();
+        const videoParticipantIds = new Set();
+        const participantNames = new Map();
         const peerConnections = new Map();
         const remoteAudioElements = new Map();
+        const remoteVideoElements = new Map();
         let localStream = null;
+        let localVideoElement = null;
         let isInVoice = false;
         let isMuted = false;
+        let isVideoCall = false;
         
         // Initialize SignalR connections
         async function initializeConnections() {
@@ -384,10 +402,16 @@
 
             roomConnection.on("VoiceJoined", async (payload) => {
                 isInVoice = true;
+                isVideoCall = payload.isVideo === true;
                 voiceParticipantIds.clear();
                 voiceParticipantIds.add(participantId);
                 (payload.participants || []).forEach(p => voiceParticipantIds.add(p.id));
-                updateVoiceUi("Connected");
+                videoParticipantIds.clear();
+                if (isVideoCall) {
+                    videoParticipantIds.add(participantId);
+                }
+                (payload.videoParticipants || []).forEach(p => videoParticipantIds.add(p.id));
+                updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
 
                 for (const p of (payload.participants || [])) {
                     await createOfferTo(p.id);
@@ -396,15 +420,35 @@
 
             roomConnection.on("VoiceParticipantJoined", (participant) => {
                 voiceParticipantIds.add(participant.id);
-                updateVoiceUi("Connected");
+                updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
+            });
+
+            roomConnection.on("VideoParticipantJoined", (participant) => {
+                if (participant.displayName) {
+                    participantNames.set(participant.id, participant.displayName);
+                }
+                videoParticipantIds.add(participant.id);
+                updateVideoStage();
+                if (participant.id !== participantId && participant.displayName) {
+                    showNotification(`📷 ${participant.displayName} started video`);
+                }
             });
 
             roomConnection.on("VoiceParticipantLeft", (leftParticipantId, participantName) => {
                 voiceParticipantIds.delete(leftParticipantId);
                 closePeerConnection(leftParticipantId);
-                updateVoiceUi(isInVoice ? "Connected" : "Not connected");
+                updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
                 if (participantName && leftParticipantId !== participantId) {
                     showNotification(`🎙️ ${participantName} left the voice call`);
+                }
+            });
+
+            roomConnection.on("VideoParticipantLeft", (leftParticipantId, participantName) => {
+                videoParticipantIds.delete(leftParticipantId);
+                removeRemoteVideo(leftParticipantId);
+                updateVideoStage();
+                if (participantName && leftParticipantId !== participantId) {
+                    showNotification(`📷 ${participantName} stopped video`);
                 }
             });
 
@@ -425,10 +469,20 @@
                 const messagesArea = document.getElementById("messagesArea");
                 messagesArea.scrollTop = messagesArea.scrollHeight;
 
+                if (state.participants) {
+                    state.participants.forEach(p => participantNames.set(p.id, p.displayName));
+                }
+
                 if (state.voiceParticipants) {
                     voiceParticipantIds.clear();
                     state.voiceParticipants.forEach(p => voiceParticipantIds.add(p.id));
-                    updateVoiceUi(isInVoice ? "Connected" : "Not connected");
+                    updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
+                }
+
+                if (state.videoParticipants) {
+                    videoParticipantIds.clear();
+                    state.videoParticipants.forEach(p => videoParticipantIds.add(p.id));
+                    updateVideoStage();
                 }
             });
         }
@@ -587,6 +641,7 @@
             }
 
             try {
+                isVideoCall = false;
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 isMuted = false;
                 updateMuteUi();
@@ -594,6 +649,27 @@
             } catch (err) {
                 console.error("Voice join error:", err);
                 showNotification("Microphone access is required to join the call.");
+                cleanupVoice();
+            }
+        }
+
+        async function joinVideo() {
+            if (isInVoice) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showNotification("Video calling is not supported in this browser.");
+                return;
+            }
+
+            try {
+                isVideoCall = true;
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                isMuted = false;
+                updateMuteUi();
+                attachLocalVideo(localStream);
+                await roomConnection.invoke("JoinVideo", roomId, participantId);
+            } catch (err) {
+                console.error("Video join error:", err);
+                showNotification("Camera and microphone access are required to join the video call.");
                 cleanupVoice();
             }
         }
@@ -618,6 +694,7 @@
         function updateVoiceUi(statusText) {
             const voiceStatus = document.getElementById("voiceStatus");
             const joinBtn = document.getElementById("joinVoiceBtn");
+            const joinVideoBtn = document.getElementById("joinVideoBtn");
             const leaveBtn = document.getElementById("leaveVoiceBtn");
             const muteBtn = document.getElementById("muteVoiceBtn");
             const countEl = document.getElementById("voiceCount");
@@ -625,6 +702,7 @@
             countEl.textContent = voiceParticipantIds.size;
             voiceStatus.textContent = statusText;
             joinBtn.disabled = isInVoice;
+            joinVideoBtn.disabled = isInVoice;
             leaveBtn.disabled = !isInVoice;
             muteBtn.disabled = !isInVoice;
         }
@@ -706,19 +784,101 @@
         }
 
         function attachRemoteStream(remoteParticipantId, stream) {
-            if (remoteAudioElements.has(remoteParticipantId)) {
-                remoteAudioElements.get(remoteParticipantId).srcObject = stream;
+            const hasVideo = stream.getVideoTracks().length > 0;
+
+            if (hasVideo) {
+                attachRemoteVideo(remoteParticipantId, stream);
+            } else if (!remoteAudioElements.has(remoteParticipantId)) {
+                const audio = document.createElement("audio");
+                audio.autoplay = true;
+                audio.playsInline = true;
+                audio.srcObject = stream;
+                audio.dataset.participantId = remoteParticipantId;
+
+                document.getElementById("voiceAudioContainer").appendChild(audio);
+                remoteAudioElements.set(remoteParticipantId, audio);
+            }
+        }
+
+        function attachRemoteVideo(remoteParticipantId, stream) {
+            if (remoteVideoElements.has(remoteParticipantId)) {
+                remoteVideoElements.get(remoteParticipantId).querySelector("video").srcObject = stream;
+                updateVideoStage();
                 return;
             }
 
-            const audio = document.createElement("audio");
-            audio.autoplay = true;
-            audio.playsInline = true;
-            audio.srcObject = stream;
-            audio.dataset.participantId = remoteParticipantId;
+            const tile = document.createElement("div");
+            tile.className = "video-tile";
+            tile.dataset.participantId = remoteParticipantId;
 
-            document.getElementById("voiceAudioContainer").appendChild(audio);
-            remoteAudioElements.set(remoteParticipantId, audio);
+            const video = document.createElement("video");
+            video.autoplay = true;
+            video.playsInline = true;
+            video.srcObject = stream;
+
+            const label = document.createElement("div");
+            label.className = "video-label";
+            label.textContent = participantNames.get(remoteParticipantId) || "Participant";
+
+            tile.appendChild(video);
+            tile.appendChild(label);
+
+            document.getElementById("videoGrid").appendChild(tile);
+            remoteVideoElements.set(remoteParticipantId, tile);
+            updateVideoStage();
+        }
+
+        function attachLocalVideo(stream) {
+            const grid = document.getElementById("videoGrid");
+            if (!grid) return;
+
+            if (!localVideoElement) {
+                const tile = document.createElement("div");
+                tile.className = "video-tile";
+
+                const video = document.createElement("video");
+                video.autoplay = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.srcObject = stream;
+
+                const label = document.createElement("div");
+                label.className = "video-label";
+                label.textContent = participantName;
+
+                const badge = document.createElement("div");
+                badge.className = "video-local-badge";
+                badge.textContent = "You";
+
+                tile.appendChild(video);
+                tile.appendChild(label);
+                tile.appendChild(badge);
+
+                grid.appendChild(tile);
+                localVideoElement = tile;
+            } else {
+                const localVideo = localVideoElement.querySelector("video");
+                if (localVideo) {
+                    localVideo.srcObject = stream;
+                }
+            }
+
+            updateVideoStage();
+        }
+
+        function removeRemoteVideo(remoteParticipantId) {
+            const tile = remoteVideoElements.get(remoteParticipantId);
+            if (tile) {
+                tile.remove();
+                remoteVideoElements.delete(remoteParticipantId);
+            }
+        }
+
+        function updateVideoStage() {
+            const stage = document.getElementById("videoStage");
+            if (!stage) return;
+            const hasVideo = isVideoCall || videoParticipantIds.size > 0 || !!localVideoElement || remoteVideoElements.size > 0;
+            stage.classList.toggle("active", hasVideo);
         }
 
         function closePeerConnection(remoteParticipantId) {
@@ -734,12 +894,16 @@
                 audio.remove();
                 remoteAudioElements.delete(remoteParticipantId);
             }
+
+            removeRemoteVideo(remoteParticipantId);
         }
 
         function cleanupVoice() {
             isInVoice = false;
             voiceParticipantIds.delete(participantId);
+            videoParticipantIds.clear();
             updateVoiceUi("Not connected");
+            updateVideoStage();
 
             peerConnections.forEach((_, id) => closePeerConnection(id));
             peerConnections.clear();
@@ -749,8 +913,14 @@
                 localStream = null;
             }
 
+            if (localVideoElement) {
+                localVideoElement.remove();
+                localVideoElement = null;
+            }
+
             isMuted = false;
             updateMuteUi();
+            isVideoCall = false;
         }
         
         function showTyping(userName) {
@@ -772,6 +942,7 @@
         
         function addParticipant(participant) {
             const participantsList = document.getElementById("participantsList");
+            participantNames.set(participant.id, participant.displayName);
             
             // Check if participant already exists
             if (document.querySelector(`[data-participant-id="${participant.id}"]`)) {
@@ -801,6 +972,7 @@
             if (participant) {
                 participant.remove();
             }
+            participantNames.delete(participantId);
         }
         
         function updateParticipantCount() {
@@ -854,6 +1026,7 @@
             });
 
             updateVoiceUi("Not connected");
+            updateVideoStage();
         });
         
         // Typing indicator
