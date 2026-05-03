@@ -54,4 +54,9 @@ public class Participant
     /// Whether the participant is currently connected to the voice call
     /// </summary>
     public bool IsInVoice { get; set; } = false;
+
+    /// <summary>
+    /// Whether the participant is currently sending video
+    /// </summary>
+    public bool IsInVideo { get; set; } = false;
 }
