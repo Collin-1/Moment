@@ -82,6 +82,9 @@ public class RoomHub : Hub
                 voteStatus = _votingService.GetVoteStatus(roomId),
                 voiceParticipants = room.Participants
                     .Where(p => !p.HasLeft && p.IsInVoice)
+                    .Select(p => new { p.Id, p.DisplayName }),
+                videoParticipants = room.Participants
+                    .Where(p => !p.HasLeft && p.IsInVideo)
                     .Select(p => new { p.Id, p.DisplayName })
             });
 
@@ -110,6 +113,11 @@ public class RoomHub : Hub
             if (participant.IsInVoice)
             {
                 participant.IsInVoice = false;
+                if (participant.IsInVideo)
+                {
+                    participant.IsInVideo = false;
+                    await Clients.Group(roomId).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
+                }
                 await Clients.Group(roomId).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
             }
 
@@ -262,16 +270,24 @@ public class RoomHub : Hub
             }
 
             participant.IsInVoice = true;
+            participant.IsInVideo = false;
 
             var otherVoiceParticipants = room.Participants
                 .Where(p => !p.HasLeft && p.IsInVoice && p.Id != participant.Id)
                 .Select(p => new { p.Id, p.DisplayName })
                 .ToList();
 
+            var videoParticipants = room.Participants
+                .Where(p => !p.HasLeft && p.IsInVideo)
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToList();
+
             await Clients.Caller.SendAsync("VoiceJoined", new
             {
                 participants = otherVoiceParticipants,
-                maxParticipants = MaxVoiceParticipants
+                videoParticipants,
+                maxParticipants = MaxVoiceParticipants,
+                isVideo = false
             });
 
             await Clients.OthersInGroup(roomId).SendAsync("VoiceParticipantJoined", new
@@ -284,6 +300,83 @@ public class RoomHub : Hub
         {
             _logger.LogError(ex, "Error joining voice");
             await Clients.Caller.SendAsync("VoiceError", "Failed to join voice call");
+        }
+    }
+
+    /// <summary>
+    /// Join the room video call (audio + video)
+    /// </summary>
+    public async Task JoinVideo(string roomId, string participantId)
+    {
+        try
+        {
+            var room = _roomService.GetRoom(roomId);
+            if (room == null)
+            {
+                await Clients.Caller.SendAsync("VoiceError", "Room not found");
+                return;
+            }
+
+            var participant = _roomService.GetParticipantByConnectionId(roomId, Context.ConnectionId);
+            if (participant == null || participant.Id != participantId)
+            {
+                await Clients.Caller.SendAsync("VoiceError", "Participant not found");
+                return;
+            }
+
+            if (participant.IsInVoice && participant.IsInVideo)
+            {
+                return;
+            }
+
+            var alreadyInVoice = participant.IsInVoice;
+            var activeVoiceCount = room.Participants.Count(p => !p.HasLeft && p.IsInVoice);
+            if (!alreadyInVoice && activeVoiceCount >= MaxVoiceParticipants)
+            {
+                await Clients.Caller.SendAsync("VoiceError", $"Voice call is full (max {MaxVoiceParticipants})");
+                return;
+            }
+
+            participant.IsInVoice = true;
+            participant.IsInVideo = true;
+
+            var otherVoiceParticipants = room.Participants
+                .Where(p => !p.HasLeft && p.IsInVoice && p.Id != participant.Id)
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToList();
+
+            var videoParticipants = room.Participants
+                .Where(p => !p.HasLeft && p.IsInVideo)
+                .Select(p => new { p.Id, p.DisplayName })
+                .ToList();
+
+            await Clients.Caller.SendAsync("VoiceJoined", new
+            {
+                participants = otherVoiceParticipants,
+                videoParticipants,
+                maxParticipants = MaxVoiceParticipants,
+                isVideo = true
+            });
+
+            if (!alreadyInVoice)
+            {
+                await Clients.OthersInGroup(roomId).SendAsync("VoiceParticipantJoined", new
+                {
+                    id = participant.Id,
+                    displayName = participant.DisplayName
+                });
+            }
+
+            await Clients.Group(roomId).SendAsync("VideoParticipantJoined", new
+            {
+                id = participant.Id,
+                displayName = participant.DisplayName
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error joining video");
+            await Clients.Caller.SendAsync("VoiceError", "Failed to join video call");
         }
     }
 
@@ -306,6 +399,11 @@ public class RoomHub : Hub
             }
 
             participant.IsInVoice = false;
+            if (participant.IsInVideo)
+            {
+                participant.IsInVideo = false;
+                await Clients.Group(roomId).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
+            }
             await Clients.Group(roomId).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
         }
         catch (Exception ex)
@@ -360,6 +458,11 @@ public class RoomHub : Hub
                 if (participant.IsInVoice)
                 {
                     participant.IsInVoice = false;
+                    if (participant.IsInVideo)
+                    {
+                        participant.IsInVideo = false;
+                        await Clients.Group(room.Id).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
+                    }
                     await Clients.Group(room.Id).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
                 }
 
