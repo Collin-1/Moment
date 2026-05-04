@@ -225,6 +225,7 @@
                     <button class="voice-btn" id="joinVideoBtn" onclick="joinVideo()">Join Video</button>
                     <button class="voice-btn voice-secondary" id="leaveVoiceBtn" onclick="leaveVoice()" disabled>Leave Voice</button>
                     <button class="voice-btn voice-secondary" id="muteVoiceBtn" onclick="toggleMute()" disabled>Mute</button>
+                    <button class="voice-btn voice-secondary" id="cameraToggleBtn" onclick="toggleCamera()" disabled>Camera Off</button>
                 </div>
             </div>
             
@@ -300,6 +301,7 @@
         let isInVoice = false;
         let isMuted = false;
         let isVideoCall = false;
+        let isCameraOn = false;
         
         // Initialize SignalR connections
         async function initializeConnections() {
@@ -412,6 +414,7 @@
                 }
                 (payload.videoParticipants || []).forEach(p => videoParticipantIds.add(p.id));
                 updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
+                updateCameraUi();
 
                 for (const p of (payload.participants || [])) {
                     await createOfferTo(p.id);
@@ -642,9 +645,11 @@
 
             try {
                 isVideoCall = false;
+                isCameraOn = false;
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
                 isMuted = false;
                 updateMuteUi();
+                updateCameraUi();
                 await roomConnection.invoke("JoinVoice", roomId, participantId);
             } catch (err) {
                 console.error("Voice join error:", err);
@@ -663,8 +668,10 @@
             try {
                 isVideoCall = true;
                 localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+                isCameraOn = true;
                 isMuted = false;
                 updateMuteUi();
+                updateCameraUi();
                 attachLocalVideo(localStream);
                 await roomConnection.invoke("JoinVideo", roomId, participantId);
             } catch (err) {
@@ -691,12 +698,30 @@
             updateMuteUi();
         }
 
+        async function toggleCamera() {
+            if (!isInVoice) return;
+
+            try {
+                if (!isCameraOn) {
+                    await enableCamera();
+                    await roomConnection.invoke("SetVideoEnabled", roomId, participantId, true);
+                } else {
+                    await disableCamera();
+                    await roomConnection.invoke("SetVideoEnabled", roomId, participantId, false);
+                }
+            } catch (err) {
+                console.error("Camera toggle error:", err);
+                showNotification("Failed to toggle camera.");
+            }
+        }
+
         function updateVoiceUi(statusText) {
             const voiceStatus = document.getElementById("voiceStatus");
             const joinBtn = document.getElementById("joinVoiceBtn");
             const joinVideoBtn = document.getElementById("joinVideoBtn");
             const leaveBtn = document.getElementById("leaveVoiceBtn");
             const muteBtn = document.getElementById("muteVoiceBtn");
+            const cameraBtn = document.getElementById("cameraToggleBtn");
             const countEl = document.getElementById("voiceCount");
 
             countEl.textContent = voiceParticipantIds.size;
@@ -705,12 +730,19 @@
             joinVideoBtn.disabled = isInVoice;
             leaveBtn.disabled = !isInVoice;
             muteBtn.disabled = !isInVoice;
+            cameraBtn.disabled = !isInVoice;
         }
 
         function updateMuteUi() {
             const muteBtn = document.getElementById("muteVoiceBtn");
             if (!muteBtn) return;
             muteBtn.textContent = isMuted ? "Unmute" : "Mute";
+        }
+
+        function updateCameraUi() {
+            const cameraBtn = document.getElementById("cameraToggleBtn");
+            if (!cameraBtn) return;
+            cameraBtn.textContent = isCameraOn ? "Camera On" : "Camera Off";
         }
 
         async function createOfferTo(remoteParticipantId) {
@@ -781,6 +813,70 @@
 
             peerConnections.set(remoteParticipantId, pc);
             return pc;
+        }
+
+        async function enableCamera() {
+            if (!localStream) {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+            }
+
+            let videoTrack = localStream.getVideoTracks()[0];
+            if (!videoTrack) {
+                const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoTrack = cameraStream.getVideoTracks()[0];
+                if (videoTrack) {
+                    localStream.addTrack(videoTrack);
+                }
+            }
+
+            if (videoTrack) {
+                videoTrack.enabled = true;
+            }
+
+            isCameraOn = true;
+            isVideoCall = true;
+            attachLocalVideo(localStream);
+
+            for (const pc of peerConnections.values()) {
+                const hasVideoSender = pc.getSenders().some(s => s.track && s.track.kind === "video");
+                if (!hasVideoSender && videoTrack) {
+                    pc.addTrack(videoTrack, localStream);
+                }
+                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+                await pc.setLocalDescription(offer);
+                const targetId = [...peerConnections.entries()].find(([, value]) => value === pc)?.[0];
+                if (targetId) {
+                    await sendVoiceSignal(targetId, "offer", pc.localDescription);
+                }
+            }
+
+            updateVideoStage();
+            updateCameraUi();
+        }
+
+        async function disableCamera() {
+            if (!localStream) return;
+            localStream.getVideoTracks().forEach(track => track.stop());
+
+            peerConnections.forEach(async (pc, targetId) => {
+                pc.getSenders().forEach(sender => {
+                    if (sender.track && sender.track.kind === "video") {
+                        pc.removeTrack(sender);
+                    }
+                });
+                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+                await pc.setLocalDescription(offer);
+                await sendVoiceSignal(targetId, "offer", pc.localDescription);
+            });
+
+            if (localVideoElement) {
+                localVideoElement.remove();
+                localVideoElement = null;
+            }
+
+            isCameraOn = false;
+            updateVideoStage();
+            updateCameraUi();
         }
 
         function attachRemoteStream(remoteParticipantId, stream) {
@@ -921,6 +1017,8 @@
             isMuted = false;
             updateMuteUi();
             isVideoCall = false;
+            isCameraOn = false;
+            updateCameraUi();
         }
         
         function showTyping(userName) {
