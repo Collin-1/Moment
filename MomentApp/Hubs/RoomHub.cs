@@ -446,6 +446,51 @@ public class RoomHub : Hub
         }
     }
 
+    /// <summary>
+    /// Toggle video stream while staying in the call
+    /// </summary>
+    public async Task SetVideoEnabled(string roomId, string participantId, bool enabled)
+    {
+        try
+        {
+            var participant = _roomService.GetParticipantByConnectionId(roomId, Context.ConnectionId);
+            if (participant == null || participant.Id != participantId)
+            {
+                return;
+            }
+
+            if (!participant.IsInVoice)
+            {
+                await Clients.Caller.SendAsync("VoiceError", "Join the call before enabling video");
+                return;
+            }
+
+            if (participant.IsInVideo == enabled)
+            {
+                return;
+            }
+
+            participant.IsInVideo = enabled;
+            if (enabled)
+            {
+                await Clients.Group(roomId).SendAsync("VideoParticipantJoined", new
+                {
+                    id = participant.Id,
+                    displayName = participant.DisplayName
+                });
+            }
+            else
+            {
+                await Clients.Group(roomId).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error toggling video");
+            await Clients.Caller.SendAsync("VoiceError", "Failed to toggle video");
+        }
+    }
+
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         // Find all rooms this connection is in and mark participant as offline
