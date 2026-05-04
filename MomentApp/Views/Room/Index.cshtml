@@ -1014,6 +1014,7 @@
             videoParticipantIds.clear();
             updateVoiceUi("Not connected");
             updateVideoStage();
+            updateAllParticipantMediaIndicators();
 
             peerConnections.forEach((_, id) => closePeerConnection(id));
             peerConnections.clear();
@@ -1110,6 +1111,30 @@
                     (status === 0 ? "dot-online" : status === 1 ? "dot-away" : "dot-offline");
             }
         }
+
+        function updateParticipantMediaIndicators(targetParticipantId) {
+            const participant = document.querySelector(`[data-participant-id="${targetParticipantId}"]`);
+            if (!participant) return;
+
+            const voiceIndicator = participant.querySelector(".media-voice");
+            const videoIndicator = participant.querySelector(".media-video");
+
+            if (voiceIndicator) {
+                voiceIndicator.classList.toggle("active", voiceParticipantIds.has(targetParticipantId));
+            }
+            if (videoIndicator) {
+                videoIndicator.classList.toggle("active", videoParticipantIds.has(targetParticipantId));
+            }
+        }
+
+        function updateAllParticipantMediaIndicators() {
+            document.querySelectorAll("[data-participant-id]").forEach(el => {
+                const id = el.getAttribute("data-participant-id");
+                if (id) {
+                    updateParticipantMediaIndicators(id);
+                }
+            });
+        }
         
         function formatTime(timestamp) {
             const date = new Date(timestamp);
@@ -1144,6 +1169,7 @@
 
             updateVoiceUi("Not connected");
             updateVideoStage();
+            updateAllParticipantMediaIndicators();
         });
         
         // Typing indicator
