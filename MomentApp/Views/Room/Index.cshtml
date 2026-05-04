@@ -63,6 +63,9 @@
         .dot-offline { background: #ef4444; }
         .participant-color { width: 2rem; height: 2rem; border-radius: 50%; }
         .participant-name { font-weight: 500; color: var(--text); flex: 1; }
+        .participant-media { display: flex; gap: 0.35rem; align-items: center; }
+        .media-indicator { font-size: 0.75rem; opacity: 0.2; transition: opacity 0.2s; }
+        .media-indicator.active { opacity: 1; }
         
         .vote-section { padding: 1rem; border-top: 2px solid var(--border); }
         .vote-btn { width: 100%; background: var(--primary); color: #000; font-weight: 600; padding: 0.75rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
@@ -209,6 +212,10 @@
                             <div class="participant-dot @(p.Status == ParticipantStatus.Online ? "dot-online" : p.Status == ParticipantStatus.Away ? "dot-away" : "dot-offline")"></div>
                             <div class="participant-color" style="background-color: @p.ColorHex;"></div>
                             <div class="participant-name">@p.DisplayName @(p.Id == Model.CurrentParticipant.Id ? "(You)" : "")</div>
+                            <div class="participant-media">
+                                <span class="media-indicator media-voice" title="In voice">🎙️</span>
+                                <span class="media-indicator media-video" title="Video on">📷</span>
+                            </div>
                         </div>
                     }
                 </div>
@@ -415,6 +422,7 @@
                 (payload.videoParticipants || []).forEach(p => videoParticipantIds.add(p.id));
                 updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
                 updateCameraUi();
+                updateAllParticipantMediaIndicators();
 
                 for (const p of (payload.participants || [])) {
                     await createOfferTo(p.id);
@@ -424,6 +432,7 @@
             roomConnection.on("VoiceParticipantJoined", (participant) => {
                 voiceParticipantIds.add(participant.id);
                 updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
+                updateParticipantMediaIndicators(participant.id);
             });
 
             roomConnection.on("VideoParticipantJoined", (participant) => {
@@ -432,6 +441,7 @@
                 }
                 videoParticipantIds.add(participant.id);
                 updateVideoStage();
+                updateParticipantMediaIndicators(participant.id);
                 if (participant.id !== participantId && participant.displayName) {
                     showNotification(`📷 ${participant.displayName} started video`);
                 }
@@ -441,6 +451,7 @@
                 voiceParticipantIds.delete(leftParticipantId);
                 closePeerConnection(leftParticipantId);
                 updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
+                updateParticipantMediaIndicators(leftParticipantId);
                 if (participantName && leftParticipantId !== participantId) {
                     showNotification(`🎙️ ${participantName} left the voice call`);
                 }
@@ -450,6 +461,7 @@
                 videoParticipantIds.delete(leftParticipantId);
                 removeRemoteVideo(leftParticipantId);
                 updateVideoStage();
+                updateParticipantMediaIndicators(leftParticipantId);
                 if (participantName && leftParticipantId !== participantId) {
                     showNotification(`📷 ${participantName} stopped video`);
                 }
@@ -480,12 +492,14 @@
                     voiceParticipantIds.clear();
                     state.voiceParticipants.forEach(p => voiceParticipantIds.add(p.id));
                     updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
+                    updateAllParticipantMediaIndicators();
                 }
 
                 if (state.videoParticipants) {
                     videoParticipantIds.clear();
                     state.videoParticipants.forEach(p => videoParticipantIds.add(p.id));
                     updateVideoStage();
+                    updateAllParticipantMediaIndicators();
                 }
             });
         }
@@ -1060,9 +1074,14 @@
                 <div class="participant-dot ${statusClass}"></div>
                 <div class="participant-color" style="background-color: ${participant.colorHex};"></div>
                 <div class="participant-name">${escapeHtml(participant.displayName)}${isYou}</div>
+                <div class="participant-media">
+                    <span class="media-indicator media-voice" title="In voice">🎙️</span>
+                    <span class="media-indicator media-video" title="Video on">📷</span>
+                </div>
             `;
             
             participantsList.appendChild(participantDiv);
+            updateParticipantMediaIndicators(participant.id);
         }
         
         function removeParticipant(participantId) {
