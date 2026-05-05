@@ -26,6 +26,8 @@ The current application flow is:
 - Real-time messaging with SignalR
 - Participant presence and status updates
 - Typing indicators and reconnect handling
+- Voice and video calling (opt-in, up to 10 participants)
+- Camera toggle during calls
 - Vote-to-close room workflow
 - In-memory storage for temporary room data
 - Privacy-focused UX with no permanent chat history
@@ -65,6 +67,10 @@ Users enter a code, choose a display name and color, and then enter the live roo
 ### Chat and presence
 
 The chat room uses SignalR hubs to broadcast messages, participant joins and leaves, typing state, timer updates, and voting activity in real time.
+
+### Voice and video
+
+Participants can join an opt-in group call (up to 10 users). Calls use WebRTC for audio/video streams and SignalR for signaling. Users can toggle the camera on or off without leaving the call.
 
 ### Room closure
 
