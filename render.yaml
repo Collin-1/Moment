@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: moment-app
+    runtime: docker
+    plan: free
+    healthCheckPath: /
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://+:8080
