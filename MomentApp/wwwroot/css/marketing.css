@@ -62,6 +62,21 @@ main {
   border-bottom: 1px solid rgba(13, 24, 56, 0.08);
 }
 
+.page-home .nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: transparent;
+  border-bottom: none;
+  backdrop-filter: none;
+}
+
+.page-home .nav-cta {
+  background: var(--white);
+  color: #004e64;
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+}
+
 .nav-inner {
   display: flex;
   align-items: center;
@@ -112,6 +127,17 @@ main {
     var(--sky-300) 100%
   );
   overflow: hidden;
+}
+
+.hero--figma {
+  min-height: 900px;
+  padding: 180px 0 140px;
+  background-color: #a3d5ff;
+  background-image:
+    url("/images/exports/hero-bg.svg"), url("/images/exports/Home.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .hero::after {
@@ -184,6 +210,10 @@ main {
 .hero-visual {
   grid-column: span 6;
   position: relative;
+}
+
+.page-home .hero-visual {
+  display: none;
 }
 
 .hero-visual img {
@@ -449,7 +479,9 @@ main {
   }
 
   .nav-links {
-    display: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 }
 
