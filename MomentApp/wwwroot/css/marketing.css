@@ -69,6 +69,12 @@ main {
   background: transparent;
   border-bottom: none;
   backdrop-filter: none;
+  color: #002664;
+}
+
+.page-home .nav-links a,
+.page-home .brand {
+  color: #002664;
 }
 
 .page-home .nav-cta {
@@ -133,8 +139,7 @@ main {
   min-height: 900px;
   padding: 180px 0 140px;
   background-color: #a3d5ff;
-  background-image:
-    url("/images/exports/hero-bg.svg"), url("/images/exports/Home.png");
+  background-image: url("/images/exports/hero-bg.svg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
