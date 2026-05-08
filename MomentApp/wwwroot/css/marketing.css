@@ -239,7 +239,7 @@ main {
 }
 
 .home .hero-copy {
-  grid-column: span 7;
+  grid-column: span 12;
 }
 
 .home .hero-visual {
