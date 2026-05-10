@@ -511,9 +511,8 @@ main {
 .process-steps {
   grid-column: span 7;
   position: relative;
-  padding-left: 18px;
   display: grid;
-  gap: 22px;
+  gap: 18px;
 }
 
 .process-steps::before {
@@ -531,31 +530,54 @@ main {
 
 .process-step {
   display: grid;
-  grid-template-columns: 56px 1fr;
-  gap: 18px;
+  grid-template-columns: 50px 1fr;
+  gap: 16px;
   align-items: start;
   position: relative;
   z-index: 1;
 }
 
+.process-step:nth-child(even) {
+  grid-template-columns: 1fr 50px;
+}
+
+.process-step:nth-child(even) > div:last-child {
+  order: -1;
+}
+
 .process-number {
-  width: 46px;
-  height: 46px;
+  width: 50px;
+  height: 50px;
   border-radius: 999px;
-  border: 2px solid rgba(120, 180, 255, 0.6);
+  border: 2px solid rgba(120, 180, 255, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  color: #b8d9ff;
-  background: rgba(13, 28, 56, 0.4);
-  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffffff;
+  background: linear-gradient(
+    135deg,
+    rgba(52, 144, 220, 0.6) 0%,
+    rgba(30, 90, 160, 0.6) 100%
+  );
+  box-shadow:
+    0 0 20px rgba(120, 180, 255, 0.4),
+    inset 0 0 10px rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .process-step h3 {
   margin: 0 0 6px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: #f3f8ff;
+  font-weight: 600;
+}
+
+.process-step > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .process-step p {
