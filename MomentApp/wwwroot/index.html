@@ -131,17 +131,33 @@
           <div class="process-steps fade-in delay-1">
             <svg
               class="process-path"
-              viewBox="0 0 320 720"
+              viewBox="0 0 320 800"
               preserveAspectRatio="none"
               aria-hidden="true"
             >
+              <defs>
+                <marker
+                  id="arrowhead"
+                  markerWidth="10"
+                  markerHeight="10"
+                  refX="9"
+                  refY="3"
+                  orient="auto"
+                >
+                  <polygon
+                    points="0 0, 10 3, 0 6"
+                    fill="rgba(120, 180, 255, 0.5)"
+                  />
+                </marker>
+              </defs>
               <path
-                d="M280 50 C280 110 100 130 100 190 C100 250 280 270 280 330 C280 390 100 410 100 470 C100 530 280 550 280 610"
+                d="M280 40 C280 110 80 140 40 180 C10 220 210 280 260 360 C290 410 110 460 80 520 C50 570 280 620 280 680"
                 fill="none"
                 stroke="rgba(120, 180, 255, 0.5)"
                 stroke-width="2"
                 stroke-dasharray="6 10"
                 stroke-linecap="round"
+                marker-mid="url(#arrowhead)"
               />
             </svg>
             <div class="process-step">
