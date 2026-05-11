@@ -529,13 +529,75 @@ main {
   font-size: 1.05rem;
   color: rgba(214, 231, 255, 0.8);
   line-height: 1.6;
+  margin-bottom: 120px;
+}
+
+.process-steps-left {
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+  margin-top: 0;
+}
+
+.process-steps-left .process-step {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.process-steps-left .process-number {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  border: 2px solid rgba(120, 180, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffffff;
+  background: linear-gradient(
+    135deg,
+    rgba(52, 144, 220, 0.6) 0%,
+    rgba(30, 90, 160, 0.6) 100%
+  );
+  box-shadow:
+    0 0 20px rgba(120, 180, 255, 0.4),
+    0 0 40px rgba(120, 180, 255, 0.15),
+    inset 0 0 10px rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.process-steps-left .process-step h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: #f3f8ff;
+  font-weight: 600;
+}
+
+.process-steps-left .process-step p {
+  margin: 0 0 8px;
+  color: rgba(214, 231, 255, 0.75);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.process-steps-left .process-meta {
+  font-size: 0.7rem;
+  color: rgba(128, 190, 255, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .process-steps {
   grid-column: span 7;
   position: relative;
-  height: 800px;
+  height: 750px;
   display: block;
+  margin-top: 120px;
 }
 
 .process-steps::before {
@@ -562,31 +624,19 @@ main {
 
 /* Step 1 - Upper Right */
 .process-step:nth-child(2) {
-  top: 0;
+  top: 40px;
   right: 0;
 }
 
-/* Step 2 - Mid Left */
-.process-step:nth-child(3) {
-  top: 160px;
-  left: 0;
-}
-
 /* Step 3 - Center Right */
-.process-step:nth-child(4) {
-  top: 320px;
+.process-step:nth-child(3) {
+  top: 260px;
   right: 40px;
 }
 
-/* Step 4 - Lower Left */
-.process-step:nth-child(5) {
-  top: 480px;
-  left: 60px;
-}
-
 /* Step 5 - Bottom Right */
-.process-step:nth-child(6) {
-  top: 640px;
+.process-step:nth-child(4) {
+  top: 480px;
   right: 0;
 }
 
@@ -661,7 +711,7 @@ main {
 
   .process-steps {
     grid-column: span 12;
-    height: 900px;
+    height: 750px;
   }
 
   .process-step {
@@ -679,8 +729,13 @@ main {
     font-size: 0.95rem;
   }
 
+  .process-steps-left {
+    gap: 20px;
+    margin-top: 60px;
+  }
+
   .process-steps {
-    height: 1000px;
+    height: 850px;
   }
 
   .process-step {
@@ -688,32 +743,18 @@ main {
   }
 
   .process-step:nth-child(2) {
-    top: 0;
-    right: auto;
+    top: 40px;
     left: 0;
   }
 
   .process-step:nth-child(3) {
-    top: 180px;
+    top: 280px;
     left: auto;
     right: 0;
   }
 
   .process-step:nth-child(4) {
-    top: 360px;
-    right: auto;
-    left: 20px;
-  }
-
-  .process-step:nth-child(5) {
-    top: 540px;
-    left: auto;
-    right: 0;
-  }
-
-  .process-step:nth-child(6) {
-    top: 720px;
-    right: auto;
+    top: 520px;
     left: 0;
   }
 }
