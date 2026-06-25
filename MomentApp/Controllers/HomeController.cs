@@ -10,18 +10,21 @@ namespace MomentApp.Controllers;
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
+    private readonly IWebHostEnvironment _env;
 
-    public HomeController(ILogger<HomeController> logger)
+    public HomeController(ILogger<HomeController> logger, IWebHostEnvironment env)
     {
         _logger = logger;
+        _env = env;
     }
 
     /// <summary>
-    /// Landing page
+    /// Landing page (serves the static marketing page at the site root)
     /// </summary>
     public IActionResult Index()
     {
-        return View();
+        var indexPath = Path.Combine(_env.WebRootPath, "index.html");
+        return PhysicalFile(indexPath, "text/html");
     }
 
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
