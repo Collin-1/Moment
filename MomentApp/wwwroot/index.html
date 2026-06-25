@@ -35,13 +35,9 @@
   <body class="home">
     <header class="nav">
       <div class="container nav-inner">
-        <a class="brand" href="/index.html">
-          <img src="/images/exports/Logo-1.png" alt="Moment logo" />
+        <a class="brand" href="/">
+          <span class="brand-wordmark">m<span class="brand-dot" aria-hidden="true"></span>ment</span>
         </a>
-        <nav class="nav-links">
-          <a href="/about.html">About</a>
-          <a href="/contact.html">Contact</a>
-        </nav>
         <a class="nav-cta" href="/Room/Create">Create a moment</a>
       </div>
     </header>
@@ -58,7 +54,7 @@
               </span>
             </div>
             <p>
-              Secure, ephemeral messaging that disappears when you are done. No
+              Secure, ephemeral messaging that disappears when you're done. No
               accounts, no tracking, no permanent records.
             </p>
             <div class="hero-actions">
@@ -73,11 +69,23 @@
         </div>
       </section>
 
+      <div class="marquee" aria-hidden="true">
+        <div class="container marquee-track">
+          <span>No cookies</span>
+          <span>No metadata</span>
+          <span>No accounts</span>
+          <span>No server logs</span>
+          <span>No screenshots</span>
+          <span>No cloud backups</span>
+          <span>No recordings</span>
+        </div>
+      </div>
+
       <section class="section reality">
         <div class="container reality-grid">
           <div class="reality-left fade-in">
             <div class="reality-kicker">The reality</div>
-            <h2>Your messages are not actually private.</h2>
+            <h2>Your messages aren't actually <span class="muted">private.</span></h2>
             <p>
               Encryption hides text. Metadata tells the story. The conversation
               you trusted lives somewhere you did not agree to.
@@ -90,7 +98,8 @@
                 <h3>Breaches happen to stored data</h3>
                 <p>
                   Encryption covers the text. Metadata — who contacted who,
-                  when, how often, from where — tells a more damning story.
+                  when, how often, from where — tells a more damning story. It
+                  is all being kept. Quietly.
                 </p>
               </div>
             </div>
@@ -100,7 +109,8 @@
                 <h3>Screenshots shared without consent</h3>
                 <p>
                   Every disappearing feature is one screenshot away from
-                  permanent. Your conversation should not become a receipt.
+                  permanent. What is sold as ephemeral is mostly theatre. The
+                  conversation you trusted lives somewhere you did not agree to.
                 </p>
               </div>
             </div>
@@ -109,8 +119,9 @@
               <div>
                 <h3>Workers avoid digital for sensitive topics</h3>
                 <p>
-                  People filter what they mean because it lives somewhere. Real
-                  conversation needs a space with no memory.
+                  People filter what they actually mean because they know it
+                  lives somewhere. That is not privacy — that is performance.
+                  Real conversation needs a space with no memory.
                 </p>
               </div>
             </div>
@@ -183,11 +194,16 @@
             />
           </svg>
 
+          <div class="process-watermark" aria-hidden="true">
+            <span>dissolve</span>
+            <span>dissolve</span>
+          </div>
+
           <div class="process-copy fade-in">
             <div class="section-title">How it works</div>
             <h2>In. Said. Gone.</h2>
             <p>
-              From zero to a private room in under 12 seconds. No friction, no
+              From nothing to a private room in 12 seconds. No friction, no
               identity, no trace.
             </p>
           </div>
@@ -268,55 +284,122 @@
       </section>
 
       <section class="section audience">
-        <div class="container audience-grid">
-          <div class="audience-copy fade-in">
+        <div class="container">
+          <div class="audience-head fade-in">
             <div class="section-title">Who it is for</div>
             <h2>
-              For every conversation that needs a room without a paper trail.
+              For every conversation that needed a room without a paper trail.
             </h2>
-            <div class="card-grid">
-              <div class="card">
-                <h3>Journalists & Activists</h3>
-                <p>
-                  Source protection without technical workarounds. Anonymous
-                  communication with no metadata to subpoena.
-                </p>
-              </div>
-              <div class="card">
-                <h3>Legal & HR</h3>
-                <p>
-                  Sensitive negotiations and internal reviews that should not
-                  become liabilities.
-                </p>
-              </div>
-              <div class="card">
-                <h3>Support & Therapy</h3>
-                <p>
-                  Spaces that dissolve when the session ends. No transcript
-                  lingering.
-                </p>
-              </div>
-              <div class="card">
-                <h3>Teams & Thinkers</h3>
-                <p>
-                  Brainstorming that does not live forever. Ideas stay in the
-                  room.
-                </p>
-              </div>
-            </div>
           </div>
-          <div class="audience-visual fade-in delay-2">
-            <img src="/images/exports/Logos.png" alt="Audience visual" />
+          <div class="audience-orbit fade-in delay-1">
+            <div class="orbit-cell top-left">
+              <h3>Journalists &amp; Activists</h3>
+              <p>
+                Source protection without technical workarounds. Anonymous
+                communication with no metadata to subpoena, extract, or hand
+                over.
+              </p>
+              <span class="orbit-quote"
+                >"Finally a room where I can speak without it becoming
+                evidence."</span
+              >
+            </div>
+            <div class="orbit-cell top-right">
+              <h3>Legal &amp; HR</h3>
+              <p>
+                Sensitive negotiations, internal reviews, whistleblower
+                conversations. Where a digital record creates liability — not
+                safety.
+              </p>
+              <span class="orbit-quote"
+                >"The source has to trust the tool before they will trust me."</span
+              >
+            </div>
+            <div class="orbit-graphic" aria-hidden="true">
+              <span class="orbit-ring"></span>
+              <span class="orbit-core"></span>
+              <span class="orbit-dot dot-top"></span>
+              <span class="orbit-dot dot-right"></span>
+              <span class="orbit-dot dot-bottom"></span>
+              <span class="orbit-dot dot-left"></span>
+            </div>
+            <div class="orbit-cell bottom-left">
+              <h3>Support &amp; Therapy</h3>
+              <p>
+                Group therapy, crisis support, anonymous peer check-ins. Spaces
+                that genuinely dissolve when the session ends — no transcript
+                lurking.
+              </p>
+              <span class="orbit-quote"
+                >"People open up when they know it won't follow them."</span
+              >
+            </div>
+            <div class="orbit-cell bottom-right">
+              <h3>Teams &amp; Thinkers</h3>
+              <p>
+                Brainstorming that needs room to be wrong. Strategy that cannot
+                leave the room. Ideas that live in the work, not the transcript.
+              </p>
+              <span class="orbit-quote"
+                >"Half-baked ideas need a safe place to be half-baked."</span
+              >
+            </div>
           </div>
         </div>
       </section>
 
       <section class="section features">
-        <div class="container fade-in">
-          <div class="section-title">Features</div>
-          <h2>Built for the conversation, not the archive.</h2>
-          <div class="feature-visual">
-            <img src="/images/exports/Features.png" alt="Moment features" />
+        <div class="container features-grid">
+          <div class="features-head fade-in">
+            <div class="section-title">Features</div>
+            <h2>Built for the conversation. Not the archive.</h2>
+          </div>
+          <div class="features-cards">
+            <div class="feature-card solid offset-a fade-in">
+              <h3>Instant Room</h3>
+              <p>
+                Private room in under 15 seconds. No email, no phone, no
+                identity. Name it, time it, share the link. Nothing more is
+                needed.
+              </p>
+            </div>
+            <div class="feature-card outline offset-b fade-in delay-1">
+              <h3>Live Countdown</h3>
+              <p>
+                5 minutes to 24 hours. The visible timer creates real urgency —
+                a constant reminder that this moment will end.
+              </p>
+            </div>
+            <div class="feature-card solid fade-in">
+              <h3>Screen Lock</h3>
+              <p>
+                Native screenshot and recording blocking across iOS, Android,
+                and web. Attempts produce a void — not a warning. A void. The
+                most ambitious trust feature in modern messaging.
+              </p>
+            </div>
+            <div class="feature-card solid offset-b fade-in delay-1">
+              <h3>Democratic Ending</h3>
+              <p>
+                Anyone can call a vote to close or extend. Majority rules. No
+                single owner. Every voice — on ending, on saving — is equal. The
+                room breathes as one.
+              </p>
+            </div>
+            <div class="feature-card solid fade-in">
+              <h3>Unanimous Save</h3>
+              <p>
+                100% yes vote exports a local file only. No vote — no record.
+                The default is always disappearance, never storage.
+              </p>
+            </div>
+            <div class="feature-card outline offset-b fade-in delay-1">
+              <h3>Voice &amp; Video</h3>
+              <p>
+                Peer-to-peer calls with no server recording. When the room ends,
+                there is no footage — only memory.
+              </p>
+            </div>
           </div>
         </div>
       </section>
