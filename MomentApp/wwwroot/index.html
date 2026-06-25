@@ -130,154 +130,136 @@
       </section>
 
       <section class="section process">
-        <div class="container process-layout">
-          <svg
-            class="process-path"
-            viewBox="0 0 1000 1200"
-            preserveAspectRatio="none"
-            aria-hidden="true"
-          >
-            <defs>
-              <marker
-                id="arrowhead"
-                markerWidth="12"
-                markerHeight="12"
-                refX="10"
-                refY="6"
-                orient="auto"
-              >
-                <polygon
-                  points="0 2, 10 6, 0 10"
-                  fill="rgba(120, 180, 255, 0.4)"
-                />
-              </marker>
-            </defs>
-            <!-- 1 to 2 -->
-            <path
-              d="M 680 180 C 680 260, 120 260, 120 340"
-              fill="none"
-              stroke="rgba(120, 180, 255, 0.3)"
-              stroke-width="2"
-              stroke-dasharray="8 12"
-              stroke-linecap="round"
-              marker-end="url(#arrowhead)"
-            />
-            <!-- 2 to 3 -->
-            <path
-              d="M 120 440 C 120 510, 680 510, 680 580"
-              fill="none"
-              stroke="rgba(120, 180, 255, 0.3)"
-              stroke-width="2"
-              stroke-dasharray="8 12"
-              stroke-linecap="round"
-              marker-end="url(#arrowhead)"
-            />
-            <!-- 3 to 4 -->
-            <path
-              d="M 680 680 C 680 750, 120 750, 120 820"
-              fill="none"
-              stroke="rgba(120, 180, 255, 0.3)"
-              stroke-width="2"
-              stroke-dasharray="8 12"
-              stroke-linecap="round"
-              marker-end="url(#arrowhead)"
-            />
-            <!-- 4 to 5 -->
-            <path
-              d="M 120 920 C 120 990, 680 990, 680 1060"
-              fill="none"
-              stroke="rgba(120, 180, 255, 0.3)"
-              stroke-width="2"
-              stroke-dasharray="8 12"
-              stroke-linecap="round"
-              marker-end="url(#arrowhead)"
-            />
-          </svg>
-
-          <div class="process-watermark" aria-hidden="true">
-            <span>dissolve</span>
-            <span>dissolve</span>
-          </div>
-
-          <div class="process-copy fade-in">
-            <div class="section-title">How it works</div>
-            <h2>In. Said. Gone.</h2>
-            <p>
-              From nothing to a private room in 12 seconds. No friction, no
-              identity, no trace.
-            </p>
-          </div>
-
-          <div class="process-step step-1 fade-in delay-1">
-            <div class="process-number">1</div>
-            <div>
-              <h3>Arrive</h3>
-              <p>
-                Land on moment.app. No sign-up. No cookie banner. A single call
-                to action. The emptiness is the first feature and the first
-                statement about what this is.
-              </p>
-              <span class="process-meta"
-                >0 form fields · 0 cookies · 0 accounts</span
-              >
+        <div class="container">
+          <div class="process-canvas">
+            <div class="process-watermark" aria-hidden="true">
+              <span>dissolve</span>
+              <span>dissolve</span>
+              <span>dissolve</span>
             </div>
-          </div>
 
-          <div class="process-step step-2 fade-in delay-2">
-            <div class="process-number">2</div>
-            <div>
-              <h3>Set the clock</h3>
+            <svg
+              class="process-wires"
+              viewBox="0 0 1920 1771"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              <defs>
+                <marker
+                  id="wire-arrow"
+                  markerWidth="9"
+                  markerHeight="9"
+                  refX="6"
+                  refY="4.5"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0 0 L8 4.5 L0 9 Z" fill="#dbeeff" />
+                </marker>
+              </defs>
+              <path
+                class="wire"
+                d="M1136 520.5C1136 598 970.975 636.764 923.5 619.5C824.5 583.5 694.5 571.5 622 643.5"
+                marker-end="url(#wire-arrow)"
+              />
+              <path
+                class="wire"
+                d="M1074.5 968.5C958 919.5 787.5 978 717.5 1006C647.5 1034 479 954.5 463 870.5"
+                marker-end="url(#wire-arrow)"
+              />
+              <path
+                class="wire"
+                d="M1306 1195C1322 1360.5 1033.61 1314.69 1016 1237C988 1113.5 785 1139.5 712.5 1211.5"
+                marker-end="url(#wire-arrow)"
+              />
+              <path
+                class="wire"
+                d="M479 1467C720 1600 905 1500 1095 1565"
+                marker-end="url(#wire-arrow)"
+              />
+            </svg>
+
+            <div class="process-head fade-in">
+              <div class="section-title">How it works</div>
+              <h2>In. Said. Gone.</h2>
               <p>
-                Name it (optional, never stored). Set a timer: 5 minutes to 24
-                hours. One tap creates the room and a unique link. That link is
-                the only key to everything that happens next.
+                From nothing to a private room in 12 seconds. No friction, no
+                identity, no trace.
               </p>
-              <span class="process-meta">12 seconds · moment.app/xxxxxxx</span>
             </div>
-          </div>
 
-          <div class="process-step step-3 fade-in delay-3">
-            <div class="process-number">3</div>
-            <div>
-              <h3>Invite anyone</h3>
-              <p>
-                Share the link. They click and they are in. No login. No phone
-                number. No email. They pick a session name that disappears with
-                the room. Nobody's identity appears anywhere.
-              </p>
-              <span class="process-meta"
-                >2-50 participants · one click to join</span
-              >
+            <div class="process-step step-1 fade-in delay-1">
+              <span class="process-number">1</span>
+              <div class="process-body">
+                <h3>Arrive</h3>
+                <p>
+                  Land on moment.app. No sign-up. No cookie banner. A single
+                  call to action. The emptiness is the first feature and the
+                  first statement about what this is.
+                </p>
+                <span class="process-meta"
+                  >0 form fields · 0 cookies · 0 accounts</span
+                >
+              </div>
             </div>
-          </div>
 
-          <div class="process-step step-4 fade-in delay-4">
-            <div class="process-number">4</div>
-            <div>
-              <h3>Speak freely</h3>
-              <p>
-                Text, voice, or video features are all inside the room. Screen
-                lock is active by default. Zero server logs. The visible timer
-                is a constant honest reminder that this will end.
-              </p>
-              <span class="process-meta"
-                >screen lock on · zero server logs · no recordings</span
-              >
+            <div class="process-step step-2 fade-in delay-2">
+              <span class="process-number">2</span>
+              <div class="process-body">
+                <h3>Set the clock</h3>
+                <p>
+                  Name it (optional, never stored). Set a timer: 5 minutes to 24
+                  hours. One tap creates the room and a unique link. That link is
+                  the only key to everything that happens next.
+                </p>
+                <span class="process-meta"
+                  >12 seconds · moment.app/xxxxxxx</span
+                >
+              </div>
             </div>
-          </div>
 
-          <div class="process-step step-5 fade-in delay-5">
-            <div class="process-number">5</div>
-            <div>
-              <h3>Let it dissolve</h3>
-              <p>
-                The room closes with ceremony — a brief dissolve, not a system
-                message. Unrecoverable by design, not just by policy. Not even
-                we can retrieve it. The conversation lived. Now it is free.
-              </p>
-              <span class="process-meta"
-                >100% vote to save · local file only · no cloud</span
-              >
+            <div class="process-step step-3 fade-in delay-3">
+              <span class="process-number">3</span>
+              <div class="process-body">
+                <h3>Invite anyone</h3>
+                <p>
+                  Share the link. They click and they are in. No login. No phone
+                  number. No email. They pick a session name that disappears
+                  with the room. Nobody's identity appears anywhere.
+                </p>
+                <span class="process-meta"
+                  >2-50 participants · one click to join</span
+                >
+              </div>
+            </div>
+
+            <div class="process-step step-4 fade-in delay-4">
+              <span class="process-number">4</span>
+              <div class="process-body">
+                <h3>Speak freely</h3>
+                <p>
+                  Text, voice, or video features are all inside the room. Screen
+                  lock is active by default. Zero server logs. The visible timer
+                  is a constant honest reminder that this will end.
+                </p>
+                <span class="process-meta"
+                  >screen lock on · zero server logs · no recordings</span
+                >
+              </div>
+            </div>
+
+            <div class="process-step step-5 fade-in delay-5">
+              <span class="process-number">5</span>
+              <div class="process-body">
+                <h3>Let it dissolve</h3>
+                <p>
+                  The room closes with ceremony — a brief dissolve, not a system
+                  message. Unrecoverable by design, not just by policy. Not even
+                  we can retrieve it. The conversation lived. Now it is free.
+                </p>
+                <span class="process-meta"
+                  >100% vote to save · local file only · no cloud</span
+                >
+              </div>
             </div>
           </div>
         </div>
