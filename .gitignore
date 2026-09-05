@@ -192,11 +192,13 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 
-# ASP.NET Development Settings (may contain secrets)
+# ASP.NET Development Settings (may contain secrets).
+# appsettings.json itself must stay tracked: it carries no secrets, and a build from a fresh
+# clone (which is what CI and Render do) would otherwise have no configuration file at all.
+# Secrets belong in environment variables, not in a per-environment JSON file.
 MomentApp/appsettings.Development.json
 MomentApp/appsettings.*.json
 !MomentApp/appsettings.json
-MomentApp/appsettings.json
 
 # User secrets
 secrets.json

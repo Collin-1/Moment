@@ -65,14 +65,14 @@ public class MessageService : IMessageService
         message.Content = SanitizeContent(message.Content);
         message.Timestamp = DateTime.UtcNow;
 
-        room.Messages.Add(message);
+        room.AddMessage(message);
         return true;
     }
 
     public List<Message> GetMessages(string roomId)
     {
         var room = _roomService.GetRoom(roomId);
-        return room?.Messages ?? new List<Message>();
+        return room?.Messages.ToList() ?? new List<Message>();
     }
 
     public bool ValidateMessage(string content)
@@ -85,6 +85,16 @@ public class MessageService : IMessageService
         if (content.Length > MaxMessageLength)
         {
             return false;
+        }
+
+        // Reject control characters other than tab/newline: they carry no meaning in a
+        // message and are a common way to smuggle payloads past naive display logic.
+        foreach (var c in content)
+        {
+            if (char.IsControl(c) && c != '\t' && c != '\n' && c != '\r')
+            {
+                return false;
+            }
         }
 
         return true;

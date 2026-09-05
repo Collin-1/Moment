@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using MomentApp.Models;
 
 namespace MomentApp.Services;
@@ -8,9 +9,10 @@ namespace MomentApp.Services;
 /// </summary>
 public class RoomService : IRoomService
 {
-    private readonly ConcurrentDictionary<string, Room> _rooms = new();
-    private readonly Random _random = new();
-    private const string CodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Excluding confusing characters
+    private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.Ordinal);
+
+    // Excludes I, O, 0 and 1 — characters people misread when typing a code from a screen.
+    private const string CodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     public Room CreateRoom(string? name, TimeSpan expiry, RoomType type)
     {
@@ -33,6 +35,11 @@ public class RoomService : IRoomService
 
     public Room? GetRoom(string roomId)
     {
+        if (string.IsNullOrEmpty(roomId))
+        {
+            return null;
+        }
+
         _rooms.TryGetValue(roomId, out var room);
         return room;
     }
@@ -44,33 +51,31 @@ public class RoomService : IRoomService
 
     public string GenerateUniqueCode()
     {
-        string code;
-        int attempts = 0;
         const int maxAttempts = 100;
 
-        do
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
-            code = GenerateCode();
-            attempts++;
-
-            if (attempts > maxAttempts)
+            var code = GenerateCode();
+            if (!_rooms.ContainsKey(code))
             {
-                throw new InvalidOperationException("Unable to generate unique room code after multiple attempts");
+                return code;
             }
-        } while (_rooms.ContainsKey(code));
-
-        return code;
-    }
-
-    private string GenerateCode()
-    {
-        var chars = new char[6];
-        for (int i = 0; i < 6; i++)
-        {
-            chars[i] = CodeCharacters[_random.Next(CodeCharacters.Length)];
         }
-        return new string(chars);
+
+        throw new InvalidOperationException("Unable to generate unique room code after multiple attempts");
     }
+
+    /// <summary>
+    /// Generates a room code using a cryptographic RNG.
+    /// </summary>
+    /// <remarks>
+    /// The room code is this app's entire access control — there are no accounts and no
+    /// other credential. A predictable code is a guessable room, so this must not use
+    /// <see cref="Random"/>. (A shared <c>Random</c> instance was also not thread-safe:
+    /// concurrent use can corrupt its internal state into returning zeros indefinitely.)
+    /// </remarks>
+    private static string GenerateCode() =>
+        new(RandomNumberGenerator.GetItems<char>(CodeCharacters, 6));
 
     public bool AddParticipant(string roomId, Participant participant)
     {
@@ -80,22 +85,26 @@ public class RoomService : IRoomService
             return false;
         }
 
-        // Check if room is at capacity
-        if (room.Participants.Count(p => !p.HasLeft) >= room.MaxParticipants)
+        // Capacity and uniqueness are a compound check-then-act: without the lock, two
+        // simultaneous joins can both observe a free slot, or both claim the same colour.
+        lock (room.MutationLock)
         {
-            return false;
-        }
+            var active = room.Participants.Where(p => !p.HasLeft).ToArray();
 
-        // Check for duplicate display name or color
-        if (room.Participants.Any(p => !p.HasLeft &&
-            (p.DisplayName.Equals(participant.DisplayName, StringComparison.OrdinalIgnoreCase) ||
-             p.ColorHex.Equals(participant.ColorHex, StringComparison.OrdinalIgnoreCase))))
-        {
-            return false;
-        }
+            if (active.Length >= room.MaxParticipants)
+            {
+                return false;
+            }
 
-        room.Participants.Add(participant);
-        return true;
+            if (active.Any(p =>
+                    p.DisplayName.Equals(participant.DisplayName, StringComparison.OrdinalIgnoreCase) ||
+                    p.ColorHex.Equals(participant.ColorHex, StringComparison.OrdinalIgnoreCase)))
+            {
+                return false;
+            }
+
+            return room.TryAddParticipant(participant);
+        }
     }
 
     public void RemoveParticipant(string roomId, string participantId)
@@ -103,26 +112,26 @@ public class RoomService : IRoomService
         var room = GetRoom(roomId);
         if (room == null) return;
 
-        var participant = room.Participants.FirstOrDefault(p => p.Id == participantId);
-        if (participant != null)
+        lock (room.MutationLock)
         {
-            participant.HasLeft = true;
-            participant.Status = ParticipantStatus.Offline;
-        }
+            var participant = room.FindParticipant(participantId);
+            if (participant != null)
+            {
+                participant.HasLeft = true;
+                participant.Status = ParticipantStatus.Offline;
+            }
 
-        // Delete room if no active participants
-        if (room.Participants.All(p => p.HasLeft))
-        {
-            DeleteRoom(roomId);
+            // Delete the room once nobody is left in it.
+            if (room.Participants.All(p => p.HasLeft))
+            {
+                DeleteRoom(roomId);
+            }
         }
     }
 
     public void UpdateParticipantStatus(string roomId, string participantId, ParticipantStatus status)
     {
-        var room = GetRoom(roomId);
-        if (room == null) return;
-
-        var participant = room.Participants.FirstOrDefault(p => p.Id == participantId);
+        var participant = GetRoom(roomId)?.FindParticipant(participantId);
         if (participant != null)
         {
             participant.Status = status;
@@ -136,18 +145,19 @@ public class RoomService : IRoomService
 
     public void UpdateParticipantActivity(string roomId, string participantId)
     {
-        var room = GetRoom(roomId);
-        if (room == null) return;
+        var participant = GetRoom(roomId)?.FindParticipant(participantId);
+        if (participant == null) return;
 
-        var participant = room.Participants.FirstOrDefault(p => p.Id == participantId);
-        if (participant != null)
+        participant.LastActivity = DateTime.UtcNow;
+        if (participant.Status != ParticipantStatus.Online)
         {
-            participant.LastActivity = DateTime.UtcNow;
-            if (participant.Status != ParticipantStatus.Online)
-            {
-                participant.Status = ParticipantStatus.Online;
-            }
+            participant.Status = ParticipantStatus.Online;
         }
+    }
+
+    public Participant? GetParticipant(string roomId, string participantId)
+    {
+        return GetRoom(roomId)?.FindParticipant(participantId);
     }
 
     public Participant? GetParticipantByConnectionId(string roomId, string connectionId)

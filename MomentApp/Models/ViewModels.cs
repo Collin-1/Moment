@@ -57,8 +57,16 @@ public class SelectDisplayViewModel
 {
     [Required(ErrorMessage = "Please enter a display name")]
     [StringLength(20, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 20 characters")]
+    // Excludes the characters that carry meaning in markup, plus control characters. Display
+    // names are echoed into every other participant's page, so this keeps the value harmless
+    // at the boundary as well as at each render site. Everything else, including non-Latin
+    // scripts, is allowed.
+    [RegularExpression(@"^[^<>&""'\\/\x00-\x1F\x7F]+$",
+        ErrorMessage = "Display name cannot contain < > & \" ' \\ or /")]
     public string DisplayName { get; set; } = string.Empty;
 
+    // Validated against ColorService's palette in the controller — an allow-list, because
+    // this value ends up inside style attributes on other participants' pages.
     [Required(ErrorMessage = "Please select a color")]
     public string ColorHex { get; set; } = string.Empty;
 

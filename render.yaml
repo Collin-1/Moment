@@ -9,3 +9,24 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://+:8080
+
+      # --- WebRTC relay (TURN) ------------------------------------------------------
+      # Without a relay, calls fail for anyone behind a symmetric NAT or a restrictive
+      # firewall — roughly 10-20% of real users — and they fail silently, because STUN
+      # succeeds on most networks you would test from.
+      #
+      # Leave Provider as "None" to ship STUN-only; the app degrades gracefully and tells
+      # the user honestly when two peers cannot reach each other.
+      #
+      # To enable a relay, set Provider to StaticSecret and fill in the rest. Values marked
+      # sync:false are entered in the Render dashboard and never committed.
+      - key: Rtc__Turn__Provider
+        value: None
+      - key: Rtc__Turn__Urls__0
+        sync: false
+      - key: Rtc__Turn__Urls__1
+        sync: false
+      - key: Rtc__Turn__Urls__2
+        sync: false
+      - key: Rtc__Turn__StaticAuthSecret
+        sync: false

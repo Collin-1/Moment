@@ -46,16 +46,29 @@ public class ColorService
     public KeyValuePair<string, string> GetRandomAvailableColor(IEnumerable<string> usedColors)
     {
         var availableColors = GetAvailableColors(usedColors);
-        if (!availableColors.Any())
-        {
-            // If all colors are taken, return a random one anyway
-            var random = new Random();
-            return AvailableColors.ElementAt(random.Next(AvailableColors.Count));
-        }
 
-        var random2 = new Random();
-        return availableColors.ElementAt(random2.Next(availableColors.Count));
+        // If every color is taken, hand back any of them rather than failing the join.
+        var pool = availableColors.Count > 0 ? availableColors : AvailableColors;
+        return pool.ElementAt(Random.Shared.Next(pool.Count));
     }
+
+    /// <summary>
+    /// Whether a hex code is one this app actually issues.
+    /// </summary>
+    /// <remarks>
+    /// The colour a participant picks is echoed into every other participant's page — into a
+    /// <c>style</c> attribute, among other places. Accepting an arbitrary string there is a
+    /// stored-XSS vector, so the palette is treated as an allow-list rather than validated by
+    /// pattern. The palette is fixed and small, which makes this the cheapest correct check.
+    /// </remarks>
+    public bool IsKnownColor(string? hexCode) =>
+        !string.IsNullOrEmpty(hexCode) &&
+        AvailableColors.Values.Contains(hexCode, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Number of distinct colors available, which is the real ceiling on room size.
+    /// </summary>
+    public int PaletteSize => AvailableColors.Count;
 
     /// <summary>
     /// Gets color name from hex code
