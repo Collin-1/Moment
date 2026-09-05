@@ -11,6 +11,12 @@ public class VoteStatus
     public int YesVotes { get; set; }
     public int NoVotes { get; set; }
     public int NotVoted { get; set; }
+
+    /// <summary>
+    /// Yes votes needed to pass, so the UI can show "3 of 5" without duplicating the rule.
+    /// </summary>
+    public int RequiredVotes { get; set; }
+
     public double YesPercentage { get; set; }
     public bool HasPassed { get; set; }
     public Dictionary<string, bool?> ParticipantVotes { get; set; } = new();
@@ -59,10 +65,32 @@ public class VotingService : IVotingService
         _roomService = roomService;
     }
 
+    /// <summary>
+    /// Participants entitled to vote: still in the room, and reachable.
+    /// </summary>
+    /// <remarks>
+    /// Offline participants are excluded deliberately. They cannot cast a vote, so counting
+    /// them in the denominator lets a single ghost — someone who closed their laptop — make
+    /// the room permanently impossible to close.
+    /// </remarks>
+    private static IReadOnlyList<Participant> EligibleVoters(Room room) =>
+        room.Participants.Where(p => !p.HasLeft && p.Status != ParticipantStatus.Offline).ToArray();
+
     public bool InitiateVote(string roomId, string initiatorId)
     {
         var room = _roomService.GetRoom(roomId);
-        if (room == null || room.ActiveVote != null)
+        if (room == null)
+        {
+            return false;
+        }
+
+        // A vote that nobody carried is cleared here so it can't block the room forever.
+        if (room.ActiveVote != null && room.ActiveVote.HasLapsed(DateTime.UtcNow))
+        {
+            room.ActiveVote = null;
+        }
+
+        if (room.ActiveVote != null)
         {
             return false;
         }
@@ -79,30 +107,32 @@ public class VotingService : IVotingService
     public bool CastVote(string roomId, string participantId, bool voteYes)
     {
         var room = _roomService.GetRoom(roomId);
-        if (room?.ActiveVote == null)
+        var vote = room?.ActiveVote;
+        if (room == null || vote == null)
         {
             return false;
         }
 
-        var participant = room.Participants.FirstOrDefault(p => p.Id == participantId && !p.HasLeft);
-        if (participant == null)
+        // Once it has passed the outcome is settled; further votes would be misleading.
+        if (vote.IsPassed)
         {
             return false;
         }
 
-        // Don't allow changing vote
-        if (room.ActiveVote.Votes.ContainsKey(participantId))
+        var participant = room.FindParticipant(participantId);
+        if (participant == null || participant.HasLeft)
         {
             return false;
         }
 
-        room.ActiveVote.Votes[participantId] = voteYes;
+        // Changing your mind is allowed until the vote passes. Ending the room is
+        // irreversible, so a mis-tap must not be.
+        vote.Votes[participantId] = voteYes;
 
-        // Check if majority reached
         if (CalculateMajority(roomId))
         {
-            room.ActiveVote.IsPassed = true;
-            room.ActiveVote.PassedAt = DateTime.UtcNow;
+            vote.IsPassed = true;
+            vote.PassedAt = DateTime.UtcNow;
             _roomService.StartGracePeriod(roomId);
         }
 
@@ -117,14 +147,17 @@ public class VotingService : IVotingService
             return false;
         }
 
-        var activeParticipants = room.Participants.Count(p => !p.HasLeft);
-        if (activeParticipants == 0)
+        var eligible = EligibleVoters(room).Count;
+        if (eligible == 0)
         {
             return false;
         }
 
         var yesVotes = room.ActiveVote.Votes.Count(v => v.Value);
-        var requiredVotes = (int)Math.Ceiling(activeParticipants / 2.0) + 1; // Need >50%
+
+        // Strict majority: 2->2, 3->2, 4->3, 5->3. Integer division, not Math.Ceiling —
+        // ceil(n/2)+1 demands unanimity at n=2 and n=3, which is not what ">50%" means.
+        var requiredVotes = eligible / 2 + 1;
 
         return yesVotes >= requiredVotes;
     }
@@ -137,23 +170,17 @@ public class VotingService : IVotingService
             return null;
         }
 
-        var activeParticipants = room.Participants.Where(p => !p.HasLeft).ToList();
-        var totalParticipants = activeParticipants.Count;
+        var eligible = EligibleVoters(room);
+        var totalParticipants = eligible.Count;
         var yesVotes = room.ActiveVote.Votes.Count(v => v.Value);
         var noVotes = room.ActiveVote.Votes.Count(v => !v.Value);
-        var notVoted = totalParticipants - (yesVotes + noVotes);
+        var notVoted = Math.Max(0, totalParticipants - (yesVotes + noVotes));
 
         var participantVotes = new Dictionary<string, bool?>();
-        foreach (var participant in activeParticipants)
+        foreach (var participant in eligible)
         {
-            if (room.ActiveVote.Votes.TryGetValue(participant.Id, out var vote))
-            {
-                participantVotes[participant.DisplayName] = vote;
-            }
-            else
-            {
-                participantVotes[participant.DisplayName] = null;
-            }
+            participantVotes[participant.DisplayName] =
+                room.ActiveVote.Votes.TryGetValue(participant.Id, out var vote) ? vote : null;
         }
 
         return new VoteStatus
@@ -162,6 +189,7 @@ public class VotingService : IVotingService
             YesVotes = yesVotes,
             NoVotes = noVotes,
             NotVoted = notVoted,
+            RequiredVotes = totalParticipants > 0 ? totalParticipants / 2 + 1 : 0,
             YesPercentage = totalParticipants > 0 ? (double)yesVotes / totalParticipants * 100 : 0,
             HasPassed = room.ActiveVote.IsPassed,
             ParticipantVotes = participantVotes
@@ -176,16 +204,15 @@ public class VotingService : IVotingService
             return;
         }
 
-        // Remove votes from participants who have left
-        var activeParticipantIds = room.Participants.Where(p => !p.HasLeft).Select(p => p.Id).ToHashSet();
-        var votesToRemove = room.ActiveVote.Votes.Keys.Where(id => !activeParticipantIds.Contains(id)).ToList();
-
-        foreach (var id in votesToRemove)
+        // Drop votes cast by anyone who is no longer eligible, so the numerator and the
+        // denominator always describe the same set of people.
+        var eligibleIds = EligibleVoters(room).Select(p => p.Id).ToHashSet(StringComparer.Ordinal);
+        foreach (var id in room.ActiveVote.Votes.Keys.Where(id => !eligibleIds.Contains(id)).ToArray())
         {
-            room.ActiveVote.Votes.Remove(id);
+            room.ActiveVote.Votes.TryRemove(id, out _);
         }
 
-        // Check if majority reached after recalculation
+        // Someone leaving can itself carry the vote, since it shrinks the denominator.
         if (CalculateMajority(roomId))
         {
             room.ActiveVote.IsPassed = true;

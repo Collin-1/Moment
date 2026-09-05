@@ -1,10 +1,32 @@
+using System.Collections.Concurrent;
+
 namespace MomentApp.Models;
 
 /// <summary>
-/// Represents a chat room with ephemeral messages
+/// Represents a chat room with ephemeral messages.
 /// </summary>
+/// <remarks>
+/// Rooms are touched concurrently from three thread pools: MVC request threads
+/// (<c>RoomController</c>), SignalR hub invocation threads (<c>RoomHub</c>), and the
+/// background timer thread (<c>TimerService</c>). Participants and messages are therefore
+/// held in concurrent collections and exposed only as snapshots, so a caller can never
+/// enumerate a collection that another thread is mutating.
+///
+/// Concurrent collections make each individual operation safe, but not a sequence of them.
+/// Compound "check then act" logic — capacity check, duplicate-name check, then add — must
+/// hold <see cref="MutationLock"/>. The lock is per room, so rooms never contend.
+/// </remarks>
 public class Room
 {
+    private readonly ConcurrentDictionary<string, Participant> _participants = new(StringComparer.Ordinal);
+    private readonly List<Message> _messages = new();
+    private readonly object _messagesLock = new();
+
+    /// <summary>
+    /// Guards compound participant operations that must be atomic as a group.
+    /// </summary>
+    internal object MutationLock { get; } = new();
+
     /// <summary>
     /// Unique 6-character room code (e.g., "X7K2M9")
     /// </summary>
@@ -31,14 +53,23 @@ public class Room
     public RoomType Type { get; set; }
 
     /// <summary>
-    /// List of all participants in the room
+    /// Snapshot of all participants, in join order.
     /// </summary>
-    public List<Participant> Participants { get; set; } = new List<Participant>();
+    /// <remarks>
+    /// Returns a new array on every access so callers can enumerate and LINQ over it freely.
+    /// Ordering by <see cref="Participant.JoinedAt"/> is deliberate: the backing dictionary
+    /// has no defined order, and without this the roster would reshuffle between renders.
+    /// </remarks>
+    public IReadOnlyList<Participant> Participants =>
+        _participants.Values.OrderBy(p => p.JoinedAt).ToArray();
 
     /// <summary>
-    /// List of all messages in the room
+    /// Snapshot of all messages, in the order they were added.
     /// </summary>
-    public List<Message> Messages { get; set; } = new List<Message>();
+    public IReadOnlyList<Message> Messages
+    {
+        get { lock (_messagesLock) { return _messages.ToArray(); } }
+    }
 
     /// <summary>
     /// Current active vote session (if any)
@@ -46,9 +77,13 @@ public class Room
     public VoteSession? ActiveVote { get; set; }
 
     /// <summary>
-    /// Maximum number of participants allowed (default: 50)
+    /// Maximum number of participants allowed.
     /// </summary>
-    public int MaxParticipants { get; set; } = 50;
+    /// <remarks>
+    /// Capped at the size of <c>ColorService</c>'s palette: every participant is identified
+    /// by a distinct colour throughout the UI, so the palette is the real ceiling.
+    /// </remarks>
+    public int MaxParticipants { get; set; } = 12;
 
     /// <summary>
     /// Whether the room is in grace period after vote passed
@@ -59,4 +94,24 @@ public class Room
     /// Timestamp when grace period started (if applicable)
     /// </summary>
     public DateTime? GracePeriodStartedAt { get; set; }
+
+    /// <summary>
+    /// Adds a participant. Returns false if the id is already present.
+    /// </summary>
+    internal bool TryAddParticipant(Participant participant) =>
+        _participants.TryAdd(participant.Id, participant);
+
+    /// <summary>
+    /// Looks up a participant by id in O(1).
+    /// </summary>
+    internal Participant? FindParticipant(string participantId) =>
+        _participants.TryGetValue(participantId, out var participant) ? participant : null;
+
+    /// <summary>
+    /// Appends a message.
+    /// </summary>
+    internal void AddMessage(Message message)
+    {
+        lock (_messagesLock) { _messages.Add(message); }
+    }
 }

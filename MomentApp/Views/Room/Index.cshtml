@@ -1,185 +1,53 @@
+@using System.Text.Json
+@using MomentApp.Configuration
 @model MomentApp.Models.ChatRoomViewModel
 @{
     ViewData["Title"] = !string.IsNullOrEmpty(Model.Room.Name) ? Model.Room.Name : $"Room {Model.Room.Id}";
     var timeRemaining = Model.Room.ExpiresAt - DateTime.UtcNow;
-    Layout = null; // Don't use layout
+    Layout = null; // Standalone document: the room has its own chrome.
+
+    var clientConfig = new
+    {
+        roomId = Model.Room.Id,
+        roomName = Model.Room.Name,
+        participantId = Model.CurrentParticipant.Id,
+        displayName = Model.CurrentParticipant.DisplayName,
+        colorHex = Model.CurrentParticipant.ColorHex,
+        hubUrl = "/hubs/room",
+        homeUrl = Url.Action("Index", "Home"),
+        closedUrl = Url.Action("Closed", "Room")
+        // ICE servers are deliberately absent: TURN credentials are short-lived and must not
+        // be baked into cacheable markup. The client fetches them from /api/ice.
+    };
 }
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>@ViewData["Title"] - Moment</title>
-    <style>
-        :root {
-            --primary: #1ed760;
-            --secondary: #4ECDC4;
-            --bg: #2d3f5f;
-            --card: #3d5578;
-            --border: #5a6f8f;
-            --text: #ffffff;
-            --text-secondary: #d1d5db;
-        }
-        
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { 
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            height: 100%; 
-            overflow: hidden; 
-            background: var(--bg);
-            background-image: url('/images/pattern-bg.jpg');
-            background-size: cover;
-            background-attachment: fixed;
-        }
-        .chat-container { display: flex; height: 100%; background: transparent; }
-        
-        /* Custom Scrollbar */
-        .messages-area::-webkit-scrollbar { width: 8px; }
-        .messages-area::-webkit-scrollbar-track { background: var(--bg); }
-        .messages-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        .messages-area::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
-        
-        /* Sidebar */
-        .sidebar { width: 320px; background: var(--card); border-right: 2px solid var(--border); display: flex; flex-direction: column; backdrop-filter: blur(10px); }
-        .sidebar-header { padding: 1.5rem; border-bottom: 2px solid var(--border); }
-        .room-code { font-size: 1.5rem; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; }
-        .room-name { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem; }
-        
-        .timer-section { padding: 1.5rem; border-bottom: 2px solid var(--border); text-align: center; }
-        .timer-display { font-size: 2rem; font-weight: 700; color: var(--text); }
-        .timer-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
-        .timer-warning { color: #f59e0b; }
-        .timer-critical { color: #ef4444; animation: pulse 1s infinite; }
-        
-        @@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        
-        .participants-section { flex: 1; overflow-y: auto; padding: 1rem; }
-        .participants-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.75rem; }
-        .participant { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-        .participant-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
-        .dot-online { background: #10b981; }
-        .dot-away { background: #f59e0b; }
-        .dot-offline { background: #ef4444; }
-        .participant-color { width: 2rem; height: 2rem; border-radius: 50%; }
-        .participant-name { font-weight: 500; color: var(--text); flex: 1; }
-        .participant-media { display: flex; gap: 0.35rem; align-items: center; }
-        .media-indicator { font-size: 0.75rem; opacity: 0.2; transition: opacity 0.2s; }
-        .media-indicator.active { opacity: 1; }
-        
-        .vote-section { padding: 1rem; border-top: 2px solid var(--border); }
-        .vote-btn { width: 100%; background: var(--primary); color: #000; font-weight: 600; padding: 0.75rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
-        .vote-btn:hover { background: #1bc956; transform: translateY(-2px); }
-        .leave-btn { width: 100%; background: transparent; color: #ef4444; font-weight: 600; padding: 0.75rem; border: 2px solid #ef4444; border-radius: 0.5rem; cursor: pointer; margin-top: 0.5rem; transition: all 0.3s; }
-        .leave-btn:hover { background: rgba(239, 68, 68, 0.1); }
+    <link rel="stylesheet" href="@ClientAssets.Versioned("/css/room.css")" />
 
-        .voice-section { padding: 1rem; border-top: 2px solid var(--border); }
-        .voice-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
-        .voice-status { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-        .voice-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
-        .voice-btn { width: 100%; background: var(--secondary); color: #000; font-weight: 700; padding: 0.6rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
-        .voice-btn:hover { background: #55dad2; transform: translateY(-1px); }
-        .voice-btn.voice-secondary { background: transparent; color: var(--text); border: 2px solid var(--border); font-weight: 600; }
-        .voice-btn.voice-secondary:hover { border-color: var(--secondary); color: var(--secondary); }
-        .voice-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    @* Server state reaches the client as JSON rather than interpolated into script source.
+       Razor HTML-encodes @@Model expressions, so a display name containing an apostrophe
+       used to land inside a JS string literal as a raw &#x27; entity. Serialising with the
+       default encoder also escapes the angle brackets, so a closing script tag inside a
+       display name is inert. *@
+    <script id="moment-config" type="application/json">@Html.Raw(JsonSerializer.Serialize(clientConfig))</script>
 
-        .video-stage { background: rgba(42, 56, 80, 0.6); border-bottom: 2px solid var(--border); padding: 0.75rem 1rem; display: none; }
-        .video-stage.active { display: block; }
-        .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
-        .video-tile { position: relative; background: #111827; border-radius: 0.75rem; overflow: hidden; min-height: 120px; border: 1px solid rgba(255,255,255,0.08); }
-        .video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .video-label { position: absolute; left: 0.5rem; bottom: 0.5rem; font-size: 0.7rem; background: rgba(0,0,0,0.5); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-        .video-local-badge { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.65rem; background: rgba(25,118,210,0.75); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-        
-        .vote-panel { background: rgba(251, 191, 36, 0.2); border: 2px solid #fbbf24; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
-        .vote-panel h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
-        .vote-status { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-        .vote-buttons { display: flex; gap: 0.5rem; }
-        .vote-yes, .vote-no { flex: 1; padding: 0.5rem; border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-        .vote-yes { background: #10b981; color: white; }
-        .vote-yes:hover { background: #059669; }
-        .vote-no { background: #ef4444; color: white; }
-        .vote-no:hover { background: #dc2626; }
-        
-        /* Main Chat Area */
-        .main-chat { 
-            flex: 1; 
-            display: flex; 
-            flex-direction: column; 
-            min-height: 0; 
-            max-height: 100vh;
-            position: relative; 
-        }
-        .chat-header { background: var(--card); padding: 1rem 1.5rem; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; backdrop-filter: blur(10px); }
-        .chat-title { font-size: 1.25rem; font-weight: 700; color: var(--text); }
-        .share-btn { background: var(--primary); color: #000; padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-        .share-btn:hover { background: #1bc956; transform: translateY(-2px); }
-        
-        .messages-area { 
-            flex: 1; 
-            overflow-y: scroll !important; 
-            overflow-x: hidden; 
-            padding: 1.5rem; 
-            scroll-behavior: smooth; 
-            min-height: 0; 
-            max-height: calc(100vh - 200px);
-            background: rgba(45, 63, 95, 0.1);
-            backdrop-filter: blur(10px);
-        }
-        .message { margin-bottom: 1rem; max-width: 70%; flex-shrink: 0; }
-        .message-user { margin-left: auto; }
-        .message-other { margin-right: auto; }
-        .message-system { text-align: center; margin: 0 auto; max-width: 100%; }
-        
-        .message-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
-        .message-color { width: 1.25rem; height: 1.25rem; border-radius: 50%; }
-        .message-name { font-weight: 600; font-size: 0.875rem; }
-        .message-time { font-size: 0.75rem; color: var(--text-secondary); margin-left: auto; }
-        
-        .message-content { background: var(--card); padding: 0.75rem 1rem; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.2); color: var(--text); }
-        .message-user .message-content { background: var(--secondary); color: #000; font-weight: 500; }
-        .message-system .message-content { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); text-align: center; font-size: 0.875rem; }
-        
-        .typing-indicator { padding: 0 1.5rem; color: var(--text-secondary); font-size: 0.875rem; font-style: italic; height: 1.5rem; flex-shrink: 0; }
-        
-        .message-input-area { background: var(--card); padding: 1rem 1.5rem; border-top: 2px solid var(--border); flex-shrink: 0; position: sticky; bottom: 0; z-index: 10; backdrop-filter: blur(10px); }
-        .message-input-form { display: flex; gap: 0.75rem; align-items: center; }
-        .message-input { flex: 1; padding: 0.75rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 1rem; min-height: 2.75rem; background: var(--bg); color: var(--text); }
-        .message-input:focus { outline: none; border-color: var(--primary); }
-        .message-input::placeholder { color: var(--text-secondary); }
-        .send-btn { background: var(--primary); color: #000; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-        .send-btn:hover { background: #1bc956; transform: translateY(-2px); }
-        .send-btn:disabled { background: var(--border); cursor: not-allowed; }
-        
-        /* Notifications */
-        .notification { position: fixed; top: 1rem; right: 1rem; background: var(--card); color: var(--text); padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 1000; display: none; border: 2px solid var(--border); }
-        .notification.show { display: block; animation: slideIn 0.3s; }
-        @@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        
-        /* Mobile Responsive */
-        @@media (max-width: 768px) {
-            .sidebar { position: absolute; left: -100%; width: 80%; max-width: 320px; z-index: 100; transition: left 0.3s; }
-            .sidebar.open { left: 0; }
-            .mobile-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
-            .mobile-overlay.show { display: block; }
-        }
-        
-        .reconnecting-banner { background: #fbbf24; color: #92400e; text-align: center; padding: 0.5rem; font-weight: 600; display: none; }
-        .reconnecting-banner.show { display: block; }
-        
-        /* Scroll to bottom button */
-        .scroll-to-bottom { position: absolute; bottom: 8rem; right: 2rem; background: var(--primary); color: #000; border: none; border-radius: 50%; width: 3rem; height: 3rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: none; font-size: 1.5rem; align-items: center; justify-content: center; z-index: 5; transition: all 0.3s; }
-        .scroll-to-bottom.show { display: flex; }
-        .scroll-to-bottom:hover { background: #1bc956; transform: scale(1.05); }
-    </style>
+    @* Bare specifiers, each carrying the build stamp. A relative import resolves against the
+       importing module's URL and would drop any query or fingerprint, so without this the
+       entry point would be versioned while its dependencies were not. Must precede any
+       module script. *@
+    @Html.Raw(ClientAssets.RoomImportMapScript())
 </head>
 <body>
     <div class="reconnecting-banner" id="reconnectingBanner">
         Reconnecting...
     </div>
-    
+
     <div class="chat-container">
-        <!-- Sidebar -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <div class="room-code">@Model.Room.Id</div>
@@ -188,7 +56,7 @@
                     <div class="room-name">@Model.Room.Name</div>
                 }
             </div>
-            
+
             <div class="timer-section">
                 <div class="timer-display" id="timerDisplay">
                     @if (timeRemaining.TotalHours >= 1)
@@ -202,72 +70,61 @@
                 </div>
                 <div class="timer-label">Time Remaining</div>
             </div>
-            
+
             <div class="participants-section">
-                <div class="participants-title">👥 Participants (<span id="participantCount">@Model.Room.Participants.Count(p => !p.HasLeft)</span>)</div>
-                <div id="participantsList">
-                    @foreach (var p in Model.Room.Participants.Where(p => !p.HasLeft))
-                    {
-                        <div class="participant" data-participant-id="@p.Id">
-                            <div class="participant-dot @(p.Status == ParticipantStatus.Online ? "dot-online" : p.Status == ParticipantStatus.Away ? "dot-away" : "dot-offline")"></div>
-                            <div class="participant-color" style="background-color: @p.ColorHex;"></div>
-                            <div class="participant-name">@p.DisplayName @(p.Id == Model.CurrentParticipant.Id ? "(You)" : "")</div>
-                            <div class="participant-media">
-                                <span class="media-indicator media-voice" title="In voice">🎙️</span>
-                                <span class="media-indicator media-video" title="Video on">📷</span>
-                            </div>
-                        </div>
-                    }
+                <div class="participants-title">
+                    Participants (<span id="participantCount">@Model.Room.Participants.Count(p => !p.HasLeft)</span>)
                 </div>
+                @* Rendered empty: the roster is rebuilt from RoomState the moment the hub
+                   connects, so server-rendering it too meant two implementations of the same
+                   markup that had already drifted apart. *@
+                <div id="participantsList"></div>
             </div>
 
             <div class="voice-section">
                 <div class="voice-header">
-                    <span>🎙️ Voice Call</span>
+                    <span>Voice Call</span>
                     <span><span id="voiceCount">0</span>/10</span>
                 </div>
                 <div class="voice-status" id="voiceStatus">Not connected</div>
                 <div class="voice-buttons">
-                    <button class="voice-btn" id="joinVoiceBtn" onclick="joinVoice()">Join Voice</button>
-                    <button class="voice-btn" id="joinVideoBtn" onclick="joinVideo()">Join Video</button>
-                    <button class="voice-btn voice-secondary" id="leaveVoiceBtn" onclick="leaveVoice()" disabled>Leave Voice</button>
-                    <button class="voice-btn voice-secondary" id="muteVoiceBtn" onclick="toggleMute()" disabled>Mute</button>
-                    <button class="voice-btn voice-secondary" id="cameraToggleBtn" onclick="toggleCamera()" disabled>Camera Off</button>
+                    <button class="voice-btn" id="joinVoiceBtn" type="button">Join Voice</button>
+                    <button class="voice-btn" id="joinVideoBtn" type="button">Join Video</button>
+                    <button class="voice-btn voice-secondary" id="leaveVoiceBtn" type="button" disabled>Leave Voice</button>
+                    <button class="voice-btn voice-secondary" id="muteVoiceBtn" type="button" disabled>Mute</button>
+                    <button class="voice-btn voice-secondary" id="cameraToggleBtn" type="button" disabled>Camera Off</button>
                 </div>
             </div>
-            
+
             <div class="vote-section">
                 <div id="votePanel" style="display: none;"></div>
-                <button class="vote-btn" id="voteBtn" onclick="initiateVote()">Vote to Close Room</button>
-                <button class="leave-btn" onclick="leaveRoom()">Leave Room</button>
+                <button class="vote-btn" id="voteBtn" type="button">Vote to Close Room</button>
+                <button class="leave-btn" id="leaveRoomBtn" type="button">Leave Room</button>
             </div>
         </div>
-        
-        <!-- Main Chat -->
+
         <div class="main-chat">
             <div class="chat-header">
-                <div class="chat-title">💬 Chat</div>
-                <button class="share-btn" onclick="shareRoom()">Share Room</button>
+                <div class="chat-title">Chat</div>
+                <button class="share-btn" id="shareBtn" type="button">Share Room</button>
             </div>
 
             <div class="video-stage" id="videoStage">
                 <div class="video-grid" id="videoGrid"></div>
             </div>
-            
-            <div class="messages-area" id="messagesArea">
-                <!-- Messages will be inserted here -->
-            </div>
-            
-            <button class="scroll-to-bottom" id="scrollToBottomBtn" onclick="scrollToBottom()" title="Scroll to bottom">↓</button>
-            
+
+            <div class="messages-area" id="messagesArea"></div>
+
+            <button class="scroll-to-bottom" id="scrollToBottomBtn" type="button" title="Scroll to bottom">&#8595;</button>
+
             <div class="typing-indicator" id="typingIndicator"></div>
-            
+
             <div class="message-input-area">
-                <form class="message-input-form" onsubmit="return sendMessage(event)">
-                    <input type="text" 
-                           class="message-input" 
-                           id="messageInput" 
-                           placeholder="Type a message..." 
+                <form class="message-input-form" id="messageForm">
+                    <input type="text"
+                           class="message-input"
+                           id="messageInput"
+                           placeholder="Type a message..."
                            maxlength="2000"
                            autocomplete="off" />
                     <button type="submit" class="send-btn" id="sendBtn">Send</button>
@@ -275,926 +132,12 @@
             </div>
         </div>
     </div>
-    
-    <div class="mobile-overlay" id="mobileOverlay" onclick="closeSidebar()"></div>
+
+    <div class="mobile-overlay" id="mobileOverlay"></div>
     <div class="notification" id="notification"></div>
     <div id="voiceAudioContainer" style="display: none;"></div>
-    
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <script>
-        const roomId = '@Model.Room.Id';
-        const participantId = '@Model.CurrentParticipant.Id';
-        const participantName = '@Model.CurrentParticipant.DisplayName';
-        const participantColor = '@Model.CurrentParticipant.ColorHex';
-        
-        let chatConnection, roomConnection;
-        let typingTimeout;
-        let isTyping = false;
-
-        const voiceConfig = {
-            iceServers: [
-                { urls: "stun:stun.l.google.com:19302" },
-                { urls: "stun:stun1.l.google.com:19302" }
-            ]
-        };
-        const voiceParticipantIds = new Set();
-        const videoParticipantIds = new Set();
-        const participantNames = new Map();
-        const peerConnections = new Map();
-        const remoteAudioElements = new Map();
-        const remoteVideoElements = new Map();
-        let localStream = null;
-        let localVideoElement = null;
-        let isInVoice = false;
-        let isMuted = false;
-        let isVideoCall = false;
-        let isCameraOn = false;
-        
-        // Initialize SignalR connections
-        async function initializeConnections() {
-            // Chat Hub
-            chatConnection = new signalR.HubConnectionBuilder()
-                .withUrl("/hubs/chat")
-                .withAutomaticReconnect()
-                .build();
-            
-            // Room Hub
-            roomConnection = new signalR.HubConnectionBuilder()
-                .withUrl("/hubs/room")
-                .withAutomaticReconnect()
-                .build();
-            
-            setupChatHandlers();
-            setupRoomHandlers();
-            
-            try {
-                await chatConnection.start();
-                await roomConnection.start();
-                await chatConnection.invoke("JoinChatRoom", roomId);
-                await roomConnection.invoke("JoinRoom", roomId, participantId);
-                console.log("Connected to SignalR");
-            } catch (err) {
-                console.error("Error connecting:", err);
-                showNotification("Connection error. Please refresh the page.");
-            }
-        }
-        
-        function setupChatHandlers() {
-            chatConnection.on("ReceiveMessage", (message) => {
-                addMessage(message);
-            });
-            
-            chatConnection.on("UserTyping", (userName) => {
-                if (userName !== participantName) {
-                    showTyping(userName);
-                }
-            });
-            
-            chatConnection.on("UserStoppedTyping", (userName) => {
-                hideTyping(userName);
-            });
-            
-            chatConnection.on("Error", (errorMessage) => {
-                showNotification(errorMessage);
-            });
-            
-            chatConnection.onreconnecting(() => {
-                document.getElementById("reconnectingBanner").classList.add("show");
-            });
-            
-            chatConnection.onreconnected(() => {
-                document.getElementById("reconnectingBanner").classList.remove("show");
-            });
-        }
-        
-        function setupRoomHandlers() {
-            roomConnection.on("UserJoined", (participant) => {
-                addParticipant(participant);
-                updateParticipantCount();
-                showNotification(`${participant.displayName} joined the room`);
-            });
-            
-            roomConnection.on("UserLeft", (participantId, participantName) => {
-                removeParticipant(participantId);
-                updateParticipantCount();
-                showNotification(`${participantName} left the room`);
-            });
-            
-            roomConnection.on("ParticipantStatusChanged", (participantId, status) => {
-                updateParticipantStatus(participantId, status);
-            });
-            
-            roomConnection.on("TimerUpdate", (secondsRemaining) => {
-                updateTimer(secondsRemaining);
-            });
-            
-            roomConnection.on("ExpiryWarning", (minutes) => {
-                showNotification(`⚠️ This room will expire in ${minutes} minute${minutes > 1 ? 's' : ''}!`);
-            });
-            
-            roomConnection.on("RoomClosed", () => {
-                cleanupVoice();
-                window.location.href = '@Url.Action("Closed", "Room")';
-            });
-            
-            roomConnection.on("VoteStarted", (initiatorName) => {
-                showNotification(`🗳️ ${initiatorName} started a vote to close the room`);
-            });
-            
-            roomConnection.on("VoteUpdated", (voteStatus) => {
-                updateVotePanel(voteStatus);
-            });
-            
-            roomConnection.on("VotePassed", () => {
-                showNotification("✅ Vote passed! Room will close in 5 minutes.");
-            });
-
-            roomConnection.on("VoiceJoined", async (payload) => {
-                isInVoice = true;
-                isVideoCall = payload.isVideo === true;
-                voiceParticipantIds.clear();
-                voiceParticipantIds.add(participantId);
-                (payload.participants || []).forEach(p => voiceParticipantIds.add(p.id));
-                videoParticipantIds.clear();
-                if (isVideoCall) {
-                    videoParticipantIds.add(participantId);
-                }
-                (payload.videoParticipants || []).forEach(p => videoParticipantIds.add(p.id));
-                updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
-                updateCameraUi();
-                updateAllParticipantMediaIndicators();
-
-                for (const p of (payload.participants || [])) {
-                    await createOfferTo(p.id);
-                }
-            });
-
-            roomConnection.on("VoiceParticipantJoined", (participant) => {
-                voiceParticipantIds.add(participant.id);
-                updateVoiceUi(isVideoCall ? "Video call" : "Voice call");
-                updateParticipantMediaIndicators(participant.id);
-            });
-
-            roomConnection.on("VideoParticipantJoined", (participant) => {
-                if (participant.displayName) {
-                    participantNames.set(participant.id, participant.displayName);
-                }
-                videoParticipantIds.add(participant.id);
-                updateVideoStage();
-                updateParticipantMediaIndicators(participant.id);
-                if (participant.id !== participantId && participant.displayName) {
-                    showNotification(`📷 ${participant.displayName} started video`);
-                }
-            });
-
-            roomConnection.on("VoiceParticipantLeft", (leftParticipantId, participantName) => {
-                voiceParticipantIds.delete(leftParticipantId);
-                closePeerConnection(leftParticipantId);
-                updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
-                updateParticipantMediaIndicators(leftParticipantId);
-                if (participantName && leftParticipantId !== participantId) {
-                    showNotification(`🎙️ ${participantName} left the voice call`);
-                }
-            });
-
-            roomConnection.on("VideoParticipantLeft", (leftParticipantId, participantName) => {
-                videoParticipantIds.delete(leftParticipantId);
-                removeRemoteVideo(leftParticipantId);
-                updateVideoStage();
-                updateParticipantMediaIndicators(leftParticipantId);
-                if (participantName && leftParticipantId !== participantId) {
-                    showNotification(`📷 ${participantName} stopped video`);
-                }
-            });
-
-            roomConnection.on("VoiceSignal", async (signal) => {
-                if (!isInVoice) return;
-                await handleVoiceSignal(signal);
-            });
-
-            roomConnection.on("VoiceError", (message) => {
-                showNotification(message || "Voice error");
-                cleanupVoice();
-            });
-            
-            roomConnection.on("RoomState", (state) => {
-                // Initial room state received
-                state.messages.forEach(msg => addMessage(msg));
-                // Scroll to bottom after loading all initial messages
-                const messagesArea = document.getElementById("messagesArea");
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-
-                if (state.participants) {
-                    state.participants.forEach(p => participantNames.set(p.id, p.displayName));
-                }
-
-                if (state.voiceParticipants) {
-                    voiceParticipantIds.clear();
-                    state.voiceParticipants.forEach(p => voiceParticipantIds.add(p.id));
-                    updateVoiceUi(isInVoice ? (isVideoCall ? "Video call" : "Voice call") : "Not connected");
-                    updateAllParticipantMediaIndicators();
-                }
-
-                if (state.videoParticipants) {
-                    videoParticipantIds.clear();
-                    state.videoParticipants.forEach(p => videoParticipantIds.add(p.id));
-                    updateVideoStage();
-                    updateAllParticipantMediaIndicators();
-                }
-            });
-        }
-        
-        async function sendMessage(event) {
-            event.preventDefault();
-            const input = document.getElementById("messageInput");
-            const message = input.value.trim();
-            
-            if (!message) return false;
-            
-            try {
-                await chatConnection.invoke("SendMessage", roomId, participantId, message);
-                input.value = "";
-                if (isTyping) {
-                    await chatConnection.invoke("StopTyping", roomId, participantId);
-                    isTyping = false;
-                }
-            } catch (err) {
-                console.error("Error sending message:", err);
-                showNotification("Failed to send message");
-            }
-            
-            return false;
-        }
-        
-        function addMessage(message) {
-            const messagesArea = document.getElementById("messagesArea");
-            const messageDiv = document.createElement("div");
-            
-            // Check if user is scrolled near the bottom (within 100px)
-            const isScrolledToBottom = messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight < 100;
-            
-            if (message.type === 1) { // System message
-                messageDiv.className = "message message-system";
-                messageDiv.innerHTML = `
-                    <div class="message-content">${escapeHtml(message.content)}</div>
-                `;
-            } else {
-                const isOwn = message.senderId === participantId;
-                messageDiv.className = `message ${isOwn ? 'message-user' : 'message-other'}`;
-                
-                messageDiv.innerHTML = `
-                    ${!isOwn ? `<div class="message-header">
-                        <div class="message-color" style="background-color: ${message.senderColor};"></div>
-                        <div class="message-name" style="color: ${message.senderColor};">${escapeHtml(message.senderName)}</div>
-                    </div>` : ''}
-                    <div class="message-content">${message.content}</div>
-                    <div class="message-time">${formatTime(message.timestamp)}</div>
-                `;
-            }
-            
-            messagesArea.appendChild(messageDiv);
-            
-            // Only auto-scroll if user was already at the bottom or if it's their own message
-            if (isScrolledToBottom || message.senderId === participantId) {
-                messagesArea.scrollTop = messagesArea.scrollHeight;
-            }
-        }
-        
-        function updateTimer(secondsRemaining) {
-            const timerDisplay = document.getElementById("timerDisplay");
-            const hours = Math.floor(secondsRemaining / 3600);
-            const minutes = Math.floor((secondsRemaining % 3600) / 60);
-            const seconds = secondsRemaining % 60;
-            
-            if (hours >= 1) {
-                timerDisplay.textContent = `${hours}h ${minutes}m`;
-            } else {
-                timerDisplay.textContent = `${minutes}m ${seconds}s`;
-            }
-            
-            timerDisplay.className = "timer-display";
-            if (secondsRemaining <= 300) { // 5 minutes
-                timerDisplay.className += " timer-critical";
-            } else if (secondsRemaining <= 600) { // 10 minutes
-                timerDisplay.className += " timer-warning";
-            }
-        }
-        
-        async function initiateVote() {
-            try {
-                await roomConnection.invoke("InitiateVote", roomId);
-            } catch (err) {
-                console.error("Error initiating vote:", err);
-            }
-        }
-        
-        async function castVote(voteYes) {
-            try {
-                await roomConnection.invoke("CastVote", roomId, voteYes);
-            } catch (err) {
-                console.error("Error casting vote:", err);
-            }
-        }
-        
-        function updateVotePanel(voteStatus) {
-            if (!voteStatus) return;
-            
-            const votePanel = document.getElementById("votePanel");
-            const percentage = Math.round(voteStatus.yesPercentage);
-            
-            let votesHtml = '<div class="vote-status">';
-            for (let [name, vote] of Object.entries(voteStatus.participantVotes)) {
-                const icon = vote === true ? '✅' : vote === false ? '❌' : '⏳';
-                votesHtml += `${icon} ${name}<br>`;
-            }
-            votesHtml += '</div>';
-            
-            votePanel.innerHTML = `
-                <h3>🗳️ Vote to Close Room</h3>
-                <div class="vote-status">
-                    ${voteStatus.yesVotes} of ${voteStatus.totalParticipants} voted Yes (${percentage}%)
-                </div>
-                ${votesHtml}
-                ${!voteStatus.hasPassed ? `
-                    <div class="vote-buttons">
-                        <button class="vote-yes" onclick="castVote(true)">✅ Yes</button>
-                        <button class="vote-no" onclick="castVote(false)">❌ No</button>
-                    </div>
-                ` : '<div style="color: #10b981; font-weight: 600;">✅ Vote Passed!</div>'}
-            `;
-            votePanel.style.display = "block";
-            document.getElementById("voteBtn").style.display = "none";
-        }
-        
-        async function leaveRoom() {
-            if (confirm("Leave this room permanently? You won't be able to rejoin.")) {
-                try {
-                    if (isInVoice) {
-                        await leaveVoice();
-                    }
-                    await roomConnection.invoke("LeaveRoom", roomId);
-                    window.location.href = '@Url.Action("Index", "Home")';
-                } catch (err) {
-                    console.error("Error leaving room:", err);
-                }
-            }
-        }
-        
-        function shareRoom() {
-            const link = window.location.href;
-            if (navigator.share) {
-                navigator.share({ title: 'Join my Moment chat', text: 'Join my chat room!', url: link });
-            } else {
-                navigator.clipboard.writeText(link);
-                showNotification("Link copied to clipboard!");
-            }
-        }
-
-        async function joinVoice() {
-            if (isInVoice) return;
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showNotification("Voice calling is not supported in this browser.");
-                return;
-            }
-
-            try {
-                isVideoCall = false;
-                isCameraOn = false;
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                isMuted = false;
-                updateMuteUi();
-                updateCameraUi();
-                await roomConnection.invoke("JoinVoice", roomId, participantId);
-            } catch (err) {
-                console.error("Voice join error:", err);
-                showNotification("Microphone access is required to join the call.");
-                cleanupVoice();
-            }
-        }
-
-        async function joinVideo() {
-            if (isInVoice) return;
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showNotification("Video calling is not supported in this browser.");
-                return;
-            }
-
-            try {
-                isVideoCall = true;
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-                isCameraOn = true;
-                isMuted = false;
-                updateMuteUi();
-                updateCameraUi();
-                attachLocalVideo(localStream);
-                await roomConnection.invoke("JoinVideo", roomId, participantId);
-            } catch (err) {
-                console.error("Video join error:", err);
-                showNotification("Camera and microphone access are required to join the video call.");
-                cleanupVoice();
-            }
-        }
-
-        async function leaveVoice() {
-            if (!isInVoice && !localStream) return;
-            try {
-                await roomConnection.invoke("LeaveVoice", roomId, participantId);
-            } catch (err) {
-                console.error("Voice leave error:", err);
-            }
-            cleanupVoice();
-        }
-
-        function toggleMute() {
-            if (!localStream) return;
-            isMuted = !isMuted;
-            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
-            updateMuteUi();
-        }
-
-        async function toggleCamera() {
-            if (!isInVoice) return;
-
-            try {
-                if (!isCameraOn) {
-                    await enableCamera();
-                    await roomConnection.invoke("SetVideoEnabled", roomId, participantId, true);
-                } else {
-                    await disableCamera();
-                    await roomConnection.invoke("SetVideoEnabled", roomId, participantId, false);
-                }
-            } catch (err) {
-                console.error("Camera toggle error:", err);
-                showNotification("Failed to toggle camera.");
-            }
-        }
-
-        function updateVoiceUi(statusText) {
-            const voiceStatus = document.getElementById("voiceStatus");
-            const joinBtn = document.getElementById("joinVoiceBtn");
-            const joinVideoBtn = document.getElementById("joinVideoBtn");
-            const leaveBtn = document.getElementById("leaveVoiceBtn");
-            const muteBtn = document.getElementById("muteVoiceBtn");
-            const cameraBtn = document.getElementById("cameraToggleBtn");
-            const countEl = document.getElementById("voiceCount");
-
-            countEl.textContent = voiceParticipantIds.size;
-            voiceStatus.textContent = statusText;
-            joinBtn.disabled = isInVoice;
-            joinVideoBtn.disabled = isInVoice;
-            leaveBtn.disabled = !isInVoice;
-            muteBtn.disabled = !isInVoice;
-            cameraBtn.disabled = !isInVoice;
-        }
-
-        function updateMuteUi() {
-            const muteBtn = document.getElementById("muteVoiceBtn");
-            if (!muteBtn) return;
-            muteBtn.textContent = isMuted ? "Unmute" : "Mute";
-        }
-
-        function updateCameraUi() {
-            const cameraBtn = document.getElementById("cameraToggleBtn");
-            if (!cameraBtn) return;
-            cameraBtn.textContent = isCameraOn ? "Camera On" : "Camera Off";
-        }
-
-        async function createOfferTo(remoteParticipantId) {
-            const pc = await createPeerConnection(remoteParticipantId);
-            const offer = await pc.createOffer({ offerToReceiveAudio: true });
-            await pc.setLocalDescription(offer);
-            await sendVoiceSignal(remoteParticipantId, "offer", pc.localDescription);
-        }
-
-        async function handleVoiceSignal(signal) {
-            const fromId = signal.fromParticipantId;
-            const type = signal.type;
-            const payload = JSON.parse(signal.data);
-
-            const pc = await createPeerConnection(fromId);
-
-            if (type === "offer") {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload));
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                await sendVoiceSignal(fromId, "answer", pc.localDescription);
-            } else if (type === "answer") {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload));
-            } else if (type === "ice") {
-                if (payload) {
-                    await pc.addIceCandidate(new RTCIceCandidate(payload));
-                }
-            }
-        }
-
-        async function sendVoiceSignal(toParticipantId, type, payload) {
-            await roomConnection.invoke(
-                "SendVoiceSignal",
-                roomId,
-                participantId,
-                toParticipantId,
-                type,
-                JSON.stringify(payload)
-            );
-        }
-
-        async function createPeerConnection(remoteParticipantId) {
-            if (peerConnections.has(remoteParticipantId)) {
-                return peerConnections.get(remoteParticipantId);
-            }
-
-            const pc = new RTCPeerConnection(voiceConfig);
-
-            if (localStream) {
-                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-            }
-
-            pc.onicecandidate = (event) => {
-                if (event.candidate) {
-                    sendVoiceSignal(remoteParticipantId, "ice", event.candidate);
-                }
-            };
-
-            pc.ontrack = (event) => {
-                attachRemoteStream(remoteParticipantId, event.streams[0]);
-            };
-
-            pc.onconnectionstatechange = () => {
-                if (["failed", "disconnected", "closed"].includes(pc.connectionState)) {
-                    closePeerConnection(remoteParticipantId);
-                }
-            };
-
-            peerConnections.set(remoteParticipantId, pc);
-            return pc;
-        }
-
-        async function enableCamera() {
-            if (!localStream) {
-                localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-            }
-
-            let videoTrack = localStream.getVideoTracks()[0];
-            if (!videoTrack) {
-                const cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                videoTrack = cameraStream.getVideoTracks()[0];
-                if (videoTrack) {
-                    localStream.addTrack(videoTrack);
-                }
-            }
-
-            if (videoTrack) {
-                videoTrack.enabled = true;
-            }
-
-            isCameraOn = true;
-            isVideoCall = true;
-            attachLocalVideo(localStream);
-
-            for (const pc of peerConnections.values()) {
-                const hasVideoSender = pc.getSenders().some(s => s.track && s.track.kind === "video");
-                if (!hasVideoSender && videoTrack) {
-                    pc.addTrack(videoTrack, localStream);
-                }
-                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-                await pc.setLocalDescription(offer);
-                const targetId = [...peerConnections.entries()].find(([, value]) => value === pc)?.[0];
-                if (targetId) {
-                    await sendVoiceSignal(targetId, "offer", pc.localDescription);
-                }
-            }
-
-            updateVideoStage();
-            updateCameraUi();
-        }
-
-        async function disableCamera() {
-            if (!localStream) return;
-            localStream.getVideoTracks().forEach(track => track.stop());
-
-            peerConnections.forEach(async (pc, targetId) => {
-                pc.getSenders().forEach(sender => {
-                    if (sender.track && sender.track.kind === "video") {
-                        pc.removeTrack(sender);
-                    }
-                });
-                const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-                await pc.setLocalDescription(offer);
-                await sendVoiceSignal(targetId, "offer", pc.localDescription);
-            });
-
-            if (localVideoElement) {
-                localVideoElement.remove();
-                localVideoElement = null;
-            }
-
-            isCameraOn = false;
-            updateVideoStage();
-            updateCameraUi();
-        }
-
-        function attachRemoteStream(remoteParticipantId, stream) {
-            const hasVideo = stream.getVideoTracks().length > 0;
-
-            if (hasVideo) {
-                attachRemoteVideo(remoteParticipantId, stream);
-            } else if (!remoteAudioElements.has(remoteParticipantId)) {
-                const audio = document.createElement("audio");
-                audio.autoplay = true;
-                audio.playsInline = true;
-                audio.srcObject = stream;
-                audio.dataset.participantId = remoteParticipantId;
-
-                document.getElementById("voiceAudioContainer").appendChild(audio);
-                remoteAudioElements.set(remoteParticipantId, audio);
-            }
-        }
-
-        function attachRemoteVideo(remoteParticipantId, stream) {
-            if (remoteVideoElements.has(remoteParticipantId)) {
-                remoteVideoElements.get(remoteParticipantId).querySelector("video").srcObject = stream;
-                updateVideoStage();
-                return;
-            }
-
-            const tile = document.createElement("div");
-            tile.className = "video-tile";
-            tile.dataset.participantId = remoteParticipantId;
-
-            const video = document.createElement("video");
-            video.autoplay = true;
-            video.playsInline = true;
-            video.srcObject = stream;
-
-            const label = document.createElement("div");
-            label.className = "video-label";
-            label.textContent = participantNames.get(remoteParticipantId) || "Participant";
-
-            tile.appendChild(video);
-            tile.appendChild(label);
-
-            document.getElementById("videoGrid").appendChild(tile);
-            remoteVideoElements.set(remoteParticipantId, tile);
-            updateVideoStage();
-        }
-
-        function attachLocalVideo(stream) {
-            const grid = document.getElementById("videoGrid");
-            if (!grid) return;
-
-            if (!localVideoElement) {
-                const tile = document.createElement("div");
-                tile.className = "video-tile";
-
-                const video = document.createElement("video");
-                video.autoplay = true;
-                video.muted = true;
-                video.playsInline = true;
-                video.srcObject = stream;
-
-                const label = document.createElement("div");
-                label.className = "video-label";
-                label.textContent = participantName;
-
-                const badge = document.createElement("div");
-                badge.className = "video-local-badge";
-                badge.textContent = "You";
-
-                tile.appendChild(video);
-                tile.appendChild(label);
-                tile.appendChild(badge);
-
-                grid.appendChild(tile);
-                localVideoElement = tile;
-            } else {
-                const localVideo = localVideoElement.querySelector("video");
-                if (localVideo) {
-                    localVideo.srcObject = stream;
-                }
-            }
-
-            updateVideoStage();
-        }
-
-        function removeRemoteVideo(remoteParticipantId) {
-            const tile = remoteVideoElements.get(remoteParticipantId);
-            if (tile) {
-                tile.remove();
-                remoteVideoElements.delete(remoteParticipantId);
-            }
-        }
-
-        function updateVideoStage() {
-            const stage = document.getElementById("videoStage");
-            if (!stage) return;
-            const hasVideo = isVideoCall || videoParticipantIds.size > 0 || !!localVideoElement || remoteVideoElements.size > 0;
-            stage.classList.toggle("active", hasVideo);
-        }
-
-        function closePeerConnection(remoteParticipantId) {
-            const pc = peerConnections.get(remoteParticipantId);
-            if (pc) {
-                pc.close();
-                peerConnections.delete(remoteParticipantId);
-            }
-
-            const audio = remoteAudioElements.get(remoteParticipantId);
-            if (audio) {
-                audio.srcObject = null;
-                audio.remove();
-                remoteAudioElements.delete(remoteParticipantId);
-            }
-
-            removeRemoteVideo(remoteParticipantId);
-        }
-
-        function cleanupVoice() {
-            isInVoice = false;
-            voiceParticipantIds.delete(participantId);
-            videoParticipantIds.clear();
-            updateVoiceUi("Not connected");
-            updateVideoStage();
-            updateAllParticipantMediaIndicators();
-
-            peerConnections.forEach((_, id) => closePeerConnection(id));
-            peerConnections.clear();
-
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-
-            if (localVideoElement) {
-                localVideoElement.remove();
-                localVideoElement = null;
-            }
-
-            isMuted = false;
-            updateMuteUi();
-            isVideoCall = false;
-            isCameraOn = false;
-            updateCameraUi();
-        }
-        
-        function showTyping(userName) {
-            const indicator = document.getElementById("typingIndicator");
-            indicator.textContent = `${userName} is typing...`;
-        }
-        
-        function hideTyping(userName) {
-            const indicator = document.getElementById("typingIndicator");
-            indicator.textContent = "";
-        }
-        
-        function showNotification(message) {
-            const notification = document.getElementById("notification");
-            notification.textContent = message;
-            notification.classList.add("show");
-            setTimeout(() => notification.classList.remove("show"), 5000);
-        }
-        
-        function addParticipant(participant) {
-            const participantsList = document.getElementById("participantsList");
-            participantNames.set(participant.id, participant.displayName);
-            
-            // Check if participant already exists
-            if (document.querySelector(`[data-participant-id="${participant.id}"]`)) {
-                return;
-            }
-            
-            const participantDiv = document.createElement("div");
-            participantDiv.className = "participant";
-            participantDiv.setAttribute("data-participant-id", participant.id);
-            
-            const statusClass = participant.status === 0 ? "dot-online" : 
-                               participant.status === 1 ? "dot-away" : "dot-offline";
-            
-            const isYou = participant.id === participantId ? " (You)" : "";
-            
-            participantDiv.innerHTML = `
-                <div class="participant-dot ${statusClass}"></div>
-                <div class="participant-color" style="background-color: ${participant.colorHex};"></div>
-                <div class="participant-name">${escapeHtml(participant.displayName)}${isYou}</div>
-                <div class="participant-media">
-                    <span class="media-indicator media-voice" title="In voice">🎙️</span>
-                    <span class="media-indicator media-video" title="Video on">📷</span>
-                </div>
-            `;
-            
-            participantsList.appendChild(participantDiv);
-            updateParticipantMediaIndicators(participant.id);
-        }
-        
-        function removeParticipant(participantId) {
-            const participant = document.querySelector(`[data-participant-id="${participantId}"]`);
-            if (participant) {
-                participant.remove();
-            }
-            participantNames.delete(participantId);
-        }
-        
-        function updateParticipantCount() {
-            const count = document.getElementById("participantsList").children.length;
-            document.getElementById("participantCount").textContent = count;
-        }
-        
-        function updateParticipantsList() {
-            // Legacy function - kept for compatibility
-            updateParticipantCount();
-        }
-        
-        function updateParticipantStatus(participantId, status) {
-            const participant = document.querySelector(`[data-participant-id="${participantId}"]`);
-            if (participant) {
-                const dot = participant.querySelector(".participant-dot");
-                dot.className = "participant-dot " + 
-                    (status === 0 ? "dot-online" : status === 1 ? "dot-away" : "dot-offline");
-            }
-        }
-
-        function updateParticipantMediaIndicators(targetParticipantId) {
-            const participant = document.querySelector(`[data-participant-id="${targetParticipantId}"]`);
-            if (!participant) return;
-
-            const voiceIndicator = participant.querySelector(".media-voice");
-            const videoIndicator = participant.querySelector(".media-video");
-
-            if (voiceIndicator) {
-                voiceIndicator.classList.toggle("active", voiceParticipantIds.has(targetParticipantId));
-            }
-            if (videoIndicator) {
-                videoIndicator.classList.toggle("active", videoParticipantIds.has(targetParticipantId));
-            }
-        }
-
-        function updateAllParticipantMediaIndicators() {
-            document.querySelectorAll("[data-participant-id]").forEach(el => {
-                const id = el.getAttribute("data-participant-id");
-                if (id) {
-                    updateParticipantMediaIndicators(id);
-                }
-            });
-        }
-        
-        function formatTime(timestamp) {
-            const date = new Date(timestamp);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
-        
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
-        
-        // Scroll to bottom function
-        function scrollToBottom() {
-            const messagesArea = document.getElementById("messagesArea");
-            messagesArea.scrollTop = messagesArea.scrollHeight;
-        }
-        
-        // Monitor scroll position to show/hide scroll-to-bottom button
-        document.addEventListener("DOMContentLoaded", () => {
-            const messagesArea = document.getElementById("messagesArea");
-            const scrollBtn = document.getElementById("scrollToBottomBtn");
-            
-            messagesArea.addEventListener("scroll", () => {
-                const isScrolledToBottom = messagesArea.scrollHeight - messagesArea.scrollTop - messagesArea.clientHeight < 100;
-                if (isScrolledToBottom) {
-                    scrollBtn.classList.remove("show");
-                } else {
-                    scrollBtn.classList.add("show");
-                }
-            });
-
-            updateVoiceUi("Not connected");
-            updateVideoStage();
-            updateAllParticipantMediaIndicators();
-        });
-        
-        // Typing indicator
-        document.getElementById("messageInput").addEventListener("input", async () => {
-            if (!isTyping) {
-                isTyping = true;
-                await chatConnection.invoke("StartTyping", roomId, participantId);
-            }
-            
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(async () => {
-                isTyping = false;
-                await chatConnection.invoke("StopTyping", roomId, participantId);
-            }, 1000);
-        });
-        
-        // Initialize on load
-        window.addEventListener("load", initializeConnections);
-        
-        // Activity heartbeat
-        setInterval(async () => {
-            if (roomConnection.state === signalR.HubConnectionState.Connected) {
-                await roomConnection.invoke("UpdateActivity", roomId);
-            }
-        }, 30000); // Every 30 seconds
-    </script>
+    <script type="module" src="@ClientAssets.Versioned(ClientAssets.RoomEntry)"></script>
 </body>
 </html>

@@ -59,4 +59,25 @@ public class Participant
     /// Whether the participant is currently sending video
     /// </summary>
     public bool IsInVideo { get; set; } = false;
+
+    /// <summary>
+    /// Whether the participant's microphone is muted.
+    /// </summary>
+    /// <remarks>
+    /// Broadcast rather than inferred. A receiver can observe that an incoming audio track is
+    /// muted, but that signal is unreliable across browsers and lags by seconds, which makes
+    /// for a mute indicator nobody trusts.
+    /// </remarks>
+    public bool IsMuted { get; set; } = false;
+
+    /// <summary>
+    /// When the participant's connection dropped, or null while they are connected.
+    /// </summary>
+    /// <remarks>
+    /// Call membership is deliberately preserved for a grace period after a disconnect.
+    /// SignalR reconnects routinely on a network blip, and peer-to-peer media survives the
+    /// signalling outage — so tearing the call down immediately turns a recoverable hiccup
+    /// into a dropped call.
+    /// </remarks>
+    public DateTime? DisconnectedAt { get; set; }
 }

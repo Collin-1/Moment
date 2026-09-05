@@ -53,6 +53,11 @@ public interface IRoomService
     void UpdateParticipantActivity(string roomId, string participantId);
 
     /// <summary>
+    /// Gets a participant by their id
+    /// </summary>
+    Participant? GetParticipant(string roomId, string participantId);
+
+    /// <summary>
     /// Gets a participant by connection ID
     /// </summary>
     Participant? GetParticipantByConnectionId(string roomId, string connectionId);

@@ -2,21 +2,21 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Moment | Secure, Ephemeral Conversations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Moment | Secure, ephemeral conversations</title>
     <meta
       name="description"
       content="Moment is a secure, ephemeral room for honest conversation. No accounts, no tracking, no permanent records."
     />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#0c1e31" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:ital,wght@0,400;0,500;0,600;1,900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/marketing.css" />
+    <link rel="stylesheet" href="/css/moment.css" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -25,103 +25,107 @@
         "applicationCategory": "CommunicationApplication",
         "operatingSystem": "Web",
         "description": "Secure, ephemeral rooms for honest conversation.",
-        "offers": {
-          "@type": "Offer",
-          "price": "0"
-        }
+        "offers": { "@type": "Offer", "price": "0" }
       }
     </script>
   </head>
-  <body class="home">
+  <body>
     <header class="nav">
       <div class="container nav-inner">
-        <a class="brand" href="/">
-          <span class="brand-wordmark">m<span class="brand-dot" aria-hidden="true"></span>ment</span>
-        </a>
+        <a class="brand" href="/">m<span aria-hidden="true">&#9679;</span>ment</a>
         <a class="nav-cta" href="/Room/Create">Create a moment</a>
       </div>
     </header>
 
     <main>
+      <!-- ------------------------------------------------------------ hero -->
       <section class="hero">
-        <div class="container hero-grid">
-          <div class="hero-copy">
-            <div class="hero-wordmark">
-              <span>
-                m
-                <span class="hero-dot" aria-hidden="true"></span>
-                ment
-              </span>
-            </div>
-            <p>
-              Secure, ephemeral messaging that disappears when you're done. No
-              accounts, no tracking, no permanent records.
+        <div class="clouds" aria-hidden="true">
+          <span class="cloud"></span><span class="cloud"></span><span class="cloud"></span>
+          <span class="cloud"></span><span class="cloud"></span><span class="cloud"></span>
+          <span class="cloud"></span>
+        </div>
+
+        <div class="wordmark-bleed">
+          <h1 class="wordmark">m<span class="wordmark-o" aria-hidden="true"></span>ment</h1>
+        </div>
+
+        <div class="container hero-inner">
+          <div class="hero-foot">
+            <p class="hero-copy">
+              Secure, ephemeral messaging that disappears when you&rsquo;re done.
+              No accounts, no tracking, no permanent records.
             </p>
+
             <div class="hero-actions">
               <a class="button primary" href="/Room/Create">Create a moment</a>
-              <a class="button ghost" href="/Room/Join">Join with code</a>
+              <a class="button secondary" href="/Room/Join">Join with code</a>
+            </div>
+
+            <div class="hero-bubbles" aria-hidden="true">
+              <span class="bubble"></span>
+              <span class="bubble alt"></span>
             </div>
           </div>
-        </div>
-        <div class="hero-bubbles" aria-hidden="true">
-          <div class="bubble"></div>
-          <div class="bubble alt"></div>
         </div>
       </section>
 
-      <div class="marquee" aria-hidden="true">
+      <!-- --------------------------------------------------------- marquee -->
+      <div class="marquee">
         <div class="container marquee-track">
-          <span>No cookies</span>
-          <span>No metadata</span>
-          <span>No accounts</span>
-          <span>No server logs</span>
-          <span>No screenshots</span>
-          <span>No cloud backups</span>
-          <span>No recordings</span>
+          <span class="marquee-item">No cookies</span>
+          <span class="marquee-item">No metadata</span>
+          <span class="marquee-item">No accounts</span>
+          <span class="marquee-item">No server logs</span>
+          <span class="marquee-item">No cloud backups</span>
+          <span class="marquee-item">No recordings</span>
         </div>
       </div>
 
+      <!-- --------------------------------------------------------- reality -->
       <section class="section reality">
         <div class="container reality-grid">
-          <div class="reality-left fade-in">
-            <div class="reality-kicker">The reality</div>
-            <h2>Your messages aren't actually <span class="muted">private.</span></h2>
-            <p>
-              Encryption hides text. Metadata tells the story. The conversation
-              you trusted lives somewhere you did not agree to.
-            </p>
+          <div class="fade-in">
+            <div class="kicker">The reality</div>
+            <h2>
+              Your messages<br />aren&rsquo;t actually<br />
+              <span class="outline-text">private.</span>
+            </h2>
           </div>
-          <div class="reality-right fade-in delay-1">
+
+          <div class="fade-in">
             <div class="reality-stat">
-              <div class="reality-number">87%</div>
+              <div class="reality-number">87<sup>%</sup></div>
               <div>
                 <h3>Breaches happen to stored data</h3>
                 <p>
-                  Encryption covers the text. Metadata — who contacted who,
-                  when, how often, from where — tells a more damning story. It
-                  is all being kept. Quietly.
+                  Encryption covers the text. Metadata &mdash; who contacted who,
+                  when, how often, from where &mdash; tells a more damning story.
+                  It is all being kept. Quietly.
                 </p>
               </div>
             </div>
+
             <div class="reality-stat">
               <div class="reality-number">1:3</div>
               <div>
                 <h3>Screenshots shared without consent</h3>
                 <p>
-                  Every disappearing feature is one screenshot away from
-                  permanent. What is sold as ephemeral is mostly theatre. The
-                  conversation you trusted lives somewhere you did not agree to.
+                  Every disappearing feature is one screenshot away from permanent.
+                  What is sold as ephemeral is mostly theatre. The conversation you
+                  trusted lives somewhere you did not agree to.
                 </p>
               </div>
             </div>
+
             <div class="reality-stat">
-              <div class="reality-number">72%</div>
+              <div class="reality-number">72<sup>%</sup></div>
               <div>
                 <h3>Workers avoid digital for sensitive topics</h3>
                 <p>
-                  People filter what they actually mean because they know it
-                  lives somewhere. That is not privacy — that is performance.
-                  Real conversation needs a space with no memory.
+                  People filter what they actually mean because they know it lives
+                  somewhere. That is not privacy &mdash; that is performance. Real
+                  conversation needs a space with no memory.
                 </p>
               </div>
             </div>
@@ -129,296 +133,262 @@
         </div>
       </section>
 
+      <!-- ---------------------------------------------------- how it works -->
       <section class="section process">
         <div class="container">
           <div class="process-canvas">
             <div class="process-watermark" aria-hidden="true">
-              <span>dissolve</span>
-              <span>dissolve</span>
-              <span>dissolve</span>
+              <span>dissolve</span><span>dissolve</span><span>dissolve</span>
             </div>
 
-            <svg
-              class="process-wires"
-              viewBox="0 0 1920 1771"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
+            <svg class="process-wires" viewBox="0 0 1920 1771" preserveAspectRatio="none" aria-hidden="true">
               <defs>
-                <marker
-                  id="wire-arrow"
-                  markerWidth="9"
-                  markerHeight="9"
-                  refX="6"
-                  refY="4.5"
-                  orient="auto-start-reverse"
-                >
+                <marker id="wire-arrow" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto-start-reverse">
                   <path d="M0 0 L8 4.5 L0 9 Z" fill="#dbeeff" />
                 </marker>
               </defs>
-              <path
-                class="wire"
-                d="M1136 520.5C1136 598 970.975 636.764 923.5 619.5C824.5 583.5 694.5 571.5 622 643.5"
-                marker-end="url(#wire-arrow)"
-              />
-              <path
-                class="wire"
-                d="M1074.5 968.5C958 919.5 787.5 978 717.5 1006C647.5 1034 479 954.5 463 870.5"
-                marker-end="url(#wire-arrow)"
-              />
-              <path
-                class="wire"
-                d="M1306 1195C1322 1360.5 1033.61 1314.69 1016 1237C988 1113.5 785 1139.5 712.5 1211.5"
-                marker-end="url(#wire-arrow)"
-              />
-              <path
-                class="wire"
-                d="M479 1467C720 1600 905 1500 1095 1565"
-                marker-end="url(#wire-arrow)"
-              />
+              <path class="wire" d="M1136 520.5C1136 598 970.975 636.764 923.5 619.5C824.5 583.5 694.5 571.5 622 643.5" marker-end="url(#wire-arrow)" />
+              <path class="wire" d="M1074.5 968.5C958 919.5 787.5 978 717.5 1006C647.5 1034 479 954.5 463 870.5" marker-end="url(#wire-arrow)" />
+              <path class="wire" d="M1306 1195C1322 1360.5 1033.61 1314.69 1016 1237C988 1113.5 785 1139.5 712.5 1211.5" marker-end="url(#wire-arrow)" />
+              <path class="wire" d="M479 1467C720 1600 905 1500 1095 1565" marker-end="url(#wire-arrow)" />
             </svg>
 
             <div class="process-head fade-in">
-              <div class="section-title">How it works</div>
+              <div class="kicker">How it works</div>
               <h2>In. Said. Gone.</h2>
-              <p>
-                From nothing to a private room in 12 seconds. No friction, no
-                identity, no trace.
-              </p>
+              <p>From nothing to a private room in 12 seconds. No friction, no identity, no trace.</p>
             </div>
 
-            <div class="process-step step-1 fade-in delay-1">
+            <div class="process-step step-1 fade-in">
               <span class="process-number">1</span>
               <div class="process-body">
                 <h3>Arrive</h3>
                 <p>
-                  Land on moment.app. No sign-up. No cookie banner. A single
-                  call to action. The emptiness is the first feature and the
-                  first statement about what this is.
+                  Land on moment.app. No sign-up. No cookie banner. A single call to
+                  action. The emptiness is the first feature and the first statement
+                  about what this is.
                 </p>
-                <span class="process-meta"
-                  >0 form fields · 0 cookies · 0 accounts</span
-                >
+                <span class="process-meta">0 form fields &middot; 0 cookies &middot; 0 accounts</span>
               </div>
             </div>
 
-            <div class="process-step step-2 fade-in delay-2">
+            <div class="process-step step-2 fade-in">
               <span class="process-number">2</span>
               <div class="process-body">
                 <h3>Set the clock</h3>
                 <p>
-                  Name it (optional, never stored). Set a timer: 5 minutes to 24
-                  hours. One tap creates the room and a unique link. That link is
-                  the only key to everything that happens next.
+                  Name it (optional, never stored). Set a timer: 30 minutes to 3 days.
+                  One tap creates the room and a unique link. That link is the only key
+                  to everything that happens next.
                 </p>
-                <span class="process-meta"
-                  >12 seconds · moment.app/xxxxxxx</span
-                >
+                <span class="process-meta">12 seconds &middot; moment.app/xxxxxx</span>
               </div>
             </div>
 
-            <div class="process-step step-3 fade-in delay-3">
+            <div class="process-step step-3 fade-in">
               <span class="process-number">3</span>
               <div class="process-body">
                 <h3>Invite anyone</h3>
                 <p>
-                  Share the link. They click and they are in. No login. No phone
-                  number. No email. They pick a session name that disappears
-                  with the room. Nobody's identity appears anywhere.
+                  Share the link. They click and they are in. No login. No phone number.
+                  No email. They pick a session name that disappears with the room.
+                  Nobody&rsquo;s identity appears anywhere.
                 </p>
-                <span class="process-meta"
-                  >2-50 participants · one click to join</span
-                >
+                <span class="process-meta">2&ndash;12 participants &middot; one click to join</span>
               </div>
             </div>
 
-            <div class="process-step step-4 fade-in delay-4">
+            <div class="process-step step-4 fade-in">
               <span class="process-number">4</span>
               <div class="process-body">
                 <h3>Speak freely</h3>
                 <p>
-                  Text, voice, or video features are all inside the room. Screen
-                  lock is active by default. Zero server logs. The visible timer
-                  is a constant honest reminder that this will end.
+                  Text, voice and video all live inside the room. Calls are
+                  peer-to-peer. Nothing is recorded, and the visible timer is a
+                  constant honest reminder that this will end.
                 </p>
-                <span class="process-meta"
-                  >screen lock on · zero server logs · no recordings</span
-                >
+                <span class="process-meta">peer-to-peer &middot; nothing stored &middot; no recordings</span>
               </div>
             </div>
 
-            <div class="process-step step-5 fade-in delay-5">
+            <div class="process-step step-5 fade-in">
               <span class="process-number">5</span>
               <div class="process-body">
                 <h3>Let it dissolve</h3>
                 <p>
-                  The room closes with ceremony — a brief dissolve, not a system
-                  message. Unrecoverable by design, not just by policy. Not even
-                  we can retrieve it. The conversation lived. Now it is free.
+                  The room closes with ceremony &mdash; a brief dissolve, not a system
+                  message. Unrecoverable by design, not just by policy. Not even we can
+                  retrieve it. The conversation lived. Now it is free.
                 </p>
-                <span class="process-meta"
-                  >100% vote to save · local file only · no cloud</span
-                >
+                <span class="process-meta">100% vote to save &middot; local file only &middot; no cloud</span>
               </div>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- ---------------------------------------------------- who it is for -->
       <section class="section audience">
         <div class="container">
-          <div class="audience-head fade-in">
-            <div class="section-title">Who it is for</div>
-            <h2>
-              For every conversation that needed a room without a paper trail.
-            </h2>
+          <div class="fade-in">
+            <div class="kicker">Who it is for</div>
+            <h2>For every conversation that needed a room without a paper trail.</h2>
           </div>
-          <div class="audience-orbit fade-in delay-1">
-            <div class="orbit-cell top-left">
+
+          <div class="audience-orbit fade-in">
+            <div class="orbit-cell left">
               <h3>Journalists &amp; Activists</h3>
               <p>
-                Source protection without technical workarounds. Anonymous
-                communication with no metadata to subpoena, extract, or hand
-                over.
+                Source protection without technical workarounds. Anonymous communication
+                with no metadata to subpoena, extract, or hand over.
               </p>
-              <span class="orbit-quote"
-                >"Finally a room where I can speak without it becoming
-                evidence."</span
-              >
+              <span class="orbit-quote">&ldquo;Finally a room where I can speak without it becoming evidence.&rdquo;</span>
             </div>
-            <div class="orbit-cell top-right">
-              <h3>Legal &amp; HR</h3>
-              <p>
-                Sensitive negotiations, internal reviews, whistleblower
-                conversations. Where a digital record creates liability — not
-                safety.
-              </p>
-              <span class="orbit-quote"
-                >"The source has to trust the tool before they will trust me."</span
-              >
-            </div>
+
             <div class="orbit-graphic" aria-hidden="true">
               <span class="orbit-ring"></span>
               <span class="orbit-core"></span>
-              <span class="orbit-dot dot-top"></span>
-              <span class="orbit-dot dot-right"></span>
-              <span class="orbit-dot dot-bottom"></span>
-              <span class="orbit-dot dot-left"></span>
+              <span class="orbit-dot tl"></span>
+              <span class="orbit-dot tr"></span>
+              <span class="orbit-dot bl"></span>
+              <span class="orbit-dot br"></span>
             </div>
-            <div class="orbit-cell bottom-left">
+
+            <div class="orbit-cell">
+              <h3>Legal &amp; HR</h3>
+              <p>
+                Sensitive negotiations, internal reviews, whistleblower conversations.
+                Where a digital record creates liability &mdash; not safety.
+              </p>
+              <span class="orbit-quote">&ldquo;The source has to trust the tool before they will trust me.&rdquo;</span>
+            </div>
+
+            <div class="orbit-cell left">
               <h3>Support &amp; Therapy</h3>
               <p>
-                Group therapy, crisis support, anonymous peer check-ins. Spaces
-                that genuinely dissolve when the session ends — no transcript
-                lurking.
+                Group therapy, crisis support, anonymous peer check-ins. Spaces that
+                genuinely dissolve when the session ends &mdash; no transcript lurking.
               </p>
-              <span class="orbit-quote"
-                >"People open up when they know it won't follow them."</span
-              >
+              <span class="orbit-quote">&ldquo;People open up when they know it won&rsquo;t follow them.&rdquo;</span>
             </div>
-            <div class="orbit-cell bottom-right">
+
+            <div class="orbit-cell">
               <h3>Teams &amp; Thinkers</h3>
               <p>
-                Brainstorming that needs room to be wrong. Strategy that cannot
-                leave the room. Ideas that live in the work, not the transcript.
+                Brainstorming that needs room to be wrong. Strategy that cannot leave the
+                room. Ideas that live in the work, not the transcript.
               </p>
-              <span class="orbit-quote"
-                >"Half-baked ideas need a safe place to be half-baked."</span
-              >
+              <span class="orbit-quote">&ldquo;Half-baked ideas need a safe place to be half-baked.&rdquo;</span>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- -------------------------------------------------------- features -->
       <section class="section features">
         <div class="container features-grid">
-          <div class="features-head fade-in">
-            <div class="section-title">Features</div>
-            <h2>Built for the conversation. Not the archive.</h2>
-          </div>
-          <div class="features-cards">
-            <div class="feature-card solid offset-a fade-in">
-              <h3>Instant Room</h3>
+          <!-- Left column: the heading, then two cards sitting lower down, which is what
+               creates the scattered rhythm in the design rather than a tidy pair of stacks. -->
+          <div class="features-col">
+            <div class="features-head fade-in">
+              <div class="kicker">Features</div>
+              <h2>Built for the conversation. Not the archive.</h2>
+            </div>
+
+            <div class="feature-card push fade-in">
+              <h3>Nothing Retained</h3>
               <p>
-                Private room in under 15 seconds. No email, no phone, no
-                identity. Name it, time it, share the link. Nothing more is
-                needed.
+                Messages live in memory for the life of the room and are never written to a
+                database or a log. Calls are peer-to-peer, so audio and video never touch the
+                server at all. When the room ends, there is nothing left to hand over.
               </p>
             </div>
-            <div class="feature-card outline offset-b fade-in delay-1">
-              <h3>Live Countdown</h3>
-              <p>
-                5 minutes to 24 hours. The visible timer creates real urgency —
-                a constant reminder that this moment will end.
-              </p>
-            </div>
-            <div class="feature-card solid fade-in">
-              <h3>Screen Lock</h3>
-              <p>
-                Native screenshot and recording blocking across iOS, Android,
-                and web. Attempts produce a void — not a warning. A void. The
-                most ambitious trust feature in modern messaging.
-              </p>
-            </div>
-            <div class="feature-card solid offset-b fade-in delay-1">
-              <h3>Democratic Ending</h3>
-              <p>
-                Anyone can call a vote to close or extend. Majority rules. No
-                single owner. Every voice — on ending, on saving — is equal. The
-                room breathes as one.
-              </p>
-            </div>
-            <div class="feature-card solid fade-in">
+
+            <div class="feature-card fade-in">
               <h3>Unanimous Save</h3>
               <p>
-                100% yes vote exports a local file only. No vote — no record.
-                The default is always disappearance, never storage.
+                100% yes vote exports a local file only. No vote &mdash; no record. The default
+                is always disappearance, never storage.
               </p>
             </div>
-            <div class="feature-card outline offset-b fade-in delay-1">
+          </div>
+
+          <div class="features-col">
+            <div class="feature-card fade-in">
+              <h3>Instant Room</h3>
+              <p>
+                Private room in under 15 seconds. No email, no phone, no identity. Name it,
+                time it, share the link. Nothing more is needed.
+              </p>
+            </div>
+
+            <div class="feature-card outline fade-in">
+              <h3>Live Countdown</h3>
+              <p>
+                30 minutes to 3 days. The visible timer creates real urgency &mdash; a constant
+                reminder that this moment will end.
+              </p>
+            </div>
+
+            <div class="feature-card push fade-in">
+              <h3>Democratic Ending</h3>
+              <p>
+                Anyone can call a vote to close or extend. Majority rules. No single owner.
+                Every voice &mdash; on ending, on saving &mdash; is equal. The room breathes as one.
+              </p>
+            </div>
+
+            <div class="feature-card outline fade-in">
               <h3>Voice &amp; Video</h3>
               <p>
-                Peer-to-peer calls with no server recording. When the room ends,
-                there is no footage — only memory.
+                Peer-to-peer calls with no server recording. When the room ends, there is no
+                footage &mdash; only memory.
               </p>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- ------------------------------------------------------------- cta -->
       <section class="section cta">
         <div class="container fade-in">
-          <div class="section-title">Get started</div>
-          <h2>Create a moment in seconds.</h2>
-          <p>
-            Launch a private room, share the link, and let it dissolve on time.
-            No setup, no accounts, just presence.
+          <div class="kicker">Get started</div>
+          <h2>Create a moment</h2>
+          <p class="lede">
+            Create your first moment in seconds, no account setup and gone the moment you
+            close it.
           </p>
           <div class="cta-actions">
             <a class="button primary" href="/Room/Create">Create a moment</a>
-            <a class="button ghost" href="/Room/Join">Join with code</a>
+            <a class="button secondary" href="/Room/Join">Join with code</a>
           </div>
         </div>
       </section>
     </main>
 
     <footer class="footer">
-      <div class="container footer-grid">
-        <div>
-          <strong>Moment</strong>
-          <p>
-            Secure, ephemeral rooms for conversations that should not linger.
-          </p>
+      <div class="container">
+        <div class="footer-grid">
+          <div>
+            <strong>m&#9679;ment</strong>
+            <p>Secure, ephemeral rooms for conversations that should not linger.</p>
+          </div>
+          <div>
+            <p><a href="/about.html">About</a></p>
+            <p><a href="/contact.html">Contact</a></p>
+          </div>
+          <div>
+            <p><a href="/Room/Create">Create a moment</a></p>
+            <p><a href="/Room/Join">Join with code</a></p>
+          </div>
         </div>
-        <div>
-          <p><a href="/about.html">About</a></p>
-          <p><a href="/contact.html">Contact</a></p>
-        </div>
-        <div>
-          <p><a href="/Room/Create">Create a moment</a></p>
-          <p><a href="/Room/Join">Join with code</a></p>
-        </div>
+        <p class="footer-note">
+          Rooms are held in memory only and disappear when they expire or when the server
+          restarts. That is the product, not a limitation.
+        </p>
       </div>
     </footer>
+
+    <script src="/js/marketing.js" type="module"></script>
   </body>
 </html>

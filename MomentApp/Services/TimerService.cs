@@ -1,113 +1,179 @@
 using Microsoft.AspNetCore.SignalR;
 using MomentApp.Hubs;
+using MomentApp.Models;
 
 namespace MomentApp.Services;
 
 /// <summary>
-/// Background service that manages room timers and expiry
+/// Background service that manages room timers and expiry.
 /// </summary>
-public class TimerService : IHostedService, IDisposable
+/// <remarks>
+/// A <see cref="BackgroundService"/> with a <see cref="PeriodicTimer"/> rather than a
+/// <see cref="System.Threading.Timer"/> with an <c>async void</c> callback. The old shape had
+/// two problems: an exception escaping the callback was unobserved and took the process down,
+/// and because the callback awaited a serial broadcast to every room, a tick slower than the
+/// interval would re-enter itself. Awaiting the timer makes both impossible by construction.
+/// </remarks>
+public class TimerService : BackgroundService
 {
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// How long a disconnected participant keeps their place in the call before their peers
+    /// are told to tear down. Long enough to cover a Wi-Fi roam or a cellular handover.
+    /// </summary>
+    private static readonly TimeSpan CallReconnectGrace = TimeSpan.FromSeconds(30);
+
     private readonly ILogger<TimerService> _logger;
-    private readonly IServiceProvider _serviceProvider;
+    private readonly IRoomService _roomService;
+    private readonly IVotingService _votingService;
     private readonly IHubContext<RoomHub> _hubContext;
-    private Timer? _timer;
-    private readonly TimeSpan _checkInterval = TimeSpan.FromSeconds(10);
 
     public TimerService(
         ILogger<TimerService> logger,
-        IServiceProvider serviceProvider,
+        IRoomService roomService,
+        IVotingService votingService,
         IHubContext<RoomHub> hubContext)
     {
         _logger = logger;
-        _serviceProvider = serviceProvider;
+        _roomService = roomService;
+        _votingService = votingService;
         _hubContext = hubContext;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Timer Service is starting");
-        _timer = new Timer(CheckRooms, null, TimeSpan.Zero, _checkInterval);
-        return Task.CompletedTask;
-    }
+        _logger.LogInformation("Timer service is starting");
 
-    private async void CheckRooms(object? state)
-    {
+        using var timer = new PeriodicTimer(CheckInterval);
+
         try
         {
-            using var scope = _serviceProvider.CreateScope();
-            var roomService = scope.ServiceProvider.GetRequiredService<IRoomService>();
-            var rooms = roomService.GetAllRooms().ToList();
-
-            foreach (var room in rooms)
+            do
             {
-                var timeRemaining = room.ExpiresAt - DateTime.UtcNow;
-                var totalSeconds = (int)timeRemaining.TotalSeconds;
-
-                // Send timer updates every 10 seconds
-                await _hubContext.Clients.Group(room.Id).SendAsync("TimerUpdate", totalSeconds);
-
-                // 5-minute warning
-                if (timeRemaining.TotalMinutes <= 5 && timeRemaining.TotalMinutes > 4.9 && !room.IsInGracePeriod)
+                try
                 {
-                    await _hubContext.Clients.Group(room.Id).SendAsync("ExpiryWarning", 5);
+                    await CheckRoomsAsync(stoppingToken);
                 }
-
-                // 1-minute warning
-                if (timeRemaining.TotalMinutes <= 1 && timeRemaining.TotalMinutes > 0.9 && !room.IsInGracePeriod)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    await _hubContext.Clients.Group(room.Id).SendAsync("ExpiryWarning", 1);
+                    // One bad room must not stop the ticking for every other room.
+                    _logger.LogError(ex, "Error in timer service tick");
                 }
-
-                // Room expired
-                if (timeRemaining.TotalSeconds <= 0)
-                {
-                    _logger.LogInformation($"Room {room.Id} has expired");
-                    await _hubContext.Clients.Group(room.Id).SendAsync("RoomClosed");
-                    roomService.DeleteRoom(room.Id);
-                }
-
-                // Check for inactive participants
-                CheckInactiveParticipants(room, roomService);
             }
+            while (await timer.WaitForNextTickAsync(stoppingToken));
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _logger.LogError(ex, "Error in timer service");
+            // Normal shutdown.
         }
+
+        _logger.LogInformation("Timer service is stopping");
     }
 
-    private void CheckInactiveParticipants(Models.Room room, IRoomService roomService)
+    private async Task CheckRoomsAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
 
+        foreach (var room in _roomService.GetAllRooms().ToArray())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var timeRemaining = room.ExpiresAt - now;
+            var totalSeconds = (int)timeRemaining.TotalSeconds;
+
+            await _hubContext.Clients.Group(room.Id).SendAsync("TimerUpdate", totalSeconds, cancellationToken);
+
+            if (!room.IsInGracePeriod)
+            {
+                if (timeRemaining.TotalMinutes is <= 5 and > 4.9)
+                {
+                    await _hubContext.Clients.Group(room.Id).SendAsync("ExpiryWarning", 5, cancellationToken);
+                }
+
+                if (timeRemaining.TotalMinutes is <= 1 and > 0.9)
+                {
+                    await _hubContext.Clients.Group(room.Id).SendAsync("ExpiryWarning", 1, cancellationToken);
+                }
+            }
+
+            if (timeRemaining.TotalSeconds <= 0)
+            {
+                _logger.LogInformation("Room {RoomId} has expired", room.Id);
+                await _hubContext.Clients.Group(room.Id).SendAsync("RoomClosed", cancellationToken);
+                _roomService.DeleteRoom(room.Id);
+                continue;
+            }
+
+            await ExpireLapsedVoteAsync(room, now, cancellationToken);
+            await EvictAbandonedCallParticipantsAsync(room, now, cancellationToken);
+            CheckInactiveParticipants(room, now);
+        }
+    }
+
+    /// <summary>
+    /// Drops participants out of the call once they have been gone longer than the reconnect
+    /// grace period.
+    /// </summary>
+    /// <remarks>
+    /// The hub deliberately leaves call membership intact when a connection drops, because a
+    /// reconnect is usually seconds away and the media never stopped flowing. This is the
+    /// other half of that bargain: someone who does not come back has to be cleared out, or
+    /// their peers keep a dead connection and the participant count stays wrong.
+    /// </remarks>
+    private async Task EvictAbandonedCallParticipantsAsync(Room room, DateTime now, CancellationToken cancellationToken)
+    {
+        foreach (var participant in room.Participants)
+        {
+            if (participant.HasLeft || !participant.IsInVoice) continue;
+            if (participant.DisconnectedAt is not { } droppedAt) continue;
+            if (now - droppedAt <= CallReconnectGrace) continue;
+
+            participant.IsInVoice = false;
+            participant.IsInVideo = false;
+
+            await _hubContext.Clients.Group(room.Id)
+                .SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName, cancellationToken);
+
+            _logger.LogInformation(
+                "Participant {ParticipantId} did not reconnect within the grace period and left the call in room {RoomId}",
+                participant.Id, room.Id);
+        }
+    }
+
+    /// <summary>
+    /// Clears a vote nobody carried, so the room isn't blocked from ever voting again.
+    /// </summary>
+    private async Task ExpireLapsedVoteAsync(Room room, DateTime now, CancellationToken cancellationToken)
+    {
+        if (room.ActiveVote?.HasLapsed(now) != true)
+        {
+            return;
+        }
+
+        room.ActiveVote = null;
+        await _hubContext.Clients.Group(room.Id).SendAsync("VoteUpdated", null, cancellationToken);
+        _logger.LogInformation("Vote in room {RoomId} lapsed without passing", room.Id);
+    }
+
+    private void CheckInactiveParticipants(Room room, DateTime now)
+    {
         foreach (var participant in room.Participants.Where(p => !p.HasLeft))
         {
             var inactiveDuration = now - participant.LastActivity;
 
-            // Mark as away after 5 minutes of inactivity
-            if (inactiveDuration.TotalMinutes >= 5 && participant.Status == Models.ParticipantStatus.Online)
+            // Away after 5 minutes of silence.
+            if (inactiveDuration.TotalMinutes >= 5 && participant.Status == ParticipantStatus.Online)
             {
-                roomService.UpdateParticipantStatus(room.Id, participant.Id, Models.ParticipantStatus.Away);
+                _roomService.UpdateParticipantStatus(room.Id, participant.Id, ParticipantStatus.Away);
             }
 
-            // Remove after 10 minutes offline
-            if (inactiveDuration.TotalMinutes >= 10 && participant.Status == Models.ParticipantStatus.Offline)
+            // Gone after 10 minutes offline.
+            if (inactiveDuration.TotalMinutes >= 10 && participant.Status == ParticipantStatus.Offline)
             {
-                roomService.RemoveParticipant(room.Id, participant.Id);
+                _roomService.RemoveParticipant(room.Id, participant.Id);
+                _votingService.RecalculateVote(room.Id);
             }
         }
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Timer Service is stopping");
-        _timer?.Change(Timeout.Infinite, 0);
-        return Task.CompletedTask;
-    }
-
-    public void Dispose()
-    {
-        _timer?.Dispose();
     }
 }

@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using MomentApp.Models;
 using MomentApp.Services;
 using QRCoder;
-using System.Drawing;
-using System.Drawing.Imaging;
 
 namespace MomentApp.Controllers;
 
@@ -179,14 +177,17 @@ public class RoomController : Controller
     [ValidateAntiForgeryToken]
     public IActionResult SelectDisplay(SelectDisplayViewModel model)
     {
+        // The chosen colour is rendered into every other participant's page, including into
+        // style attributes. Accepting an arbitrary string here would be a stored-XSS vector,
+        // so it is checked against the fixed palette rather than trusted or pattern-matched.
+        if (!_colorService.IsKnownColor(model.ColorHex))
+        {
+            ModelState.AddModelError(nameof(model.ColorHex), "Please choose one of the available colours.");
+        }
+
         if (!ModelState.IsValid)
         {
-            var room2 = _roomService.GetRoom(model.RoomCode);
-            if (room2 != null)
-            {
-                var usedColors2 = room2.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
-                ViewBag.AvailableColors = _colorService.GetAvailableColors(usedColors2);
-            }
+            RepopulateColors(model.RoomCode);
             return View(model);
         }
 
@@ -208,9 +209,8 @@ public class RoomController : Controller
 
         if (!_roomService.AddParticipant(model.RoomCode, participant))
         {
-            ModelState.AddModelError("", "Failed to join room. Display name or color may already be in use.");
-            var usedColors = room.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
-            ViewBag.AvailableColors = _colorService.GetAvailableColors(usedColors);
+            ModelState.AddModelError("", "Failed to join room. Display name or colour may already be in use.");
+            RepopulateColors(model.RoomCode);
             return View(model);
         }
 
@@ -266,6 +266,21 @@ public class RoomController : Controller
     public IActionResult Closed()
     {
         return View();
+    }
+
+    /// <summary>
+    /// Refills the colour swatches shown on the display-name form after a failed post.
+    /// </summary>
+    private void RepopulateColors(string roomCode)
+    {
+        var room = _roomService.GetRoom(roomCode);
+        if (room == null)
+        {
+            return;
+        }
+
+        var usedColors = room.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
+        ViewBag.AvailableColors = _colorService.GetAvailableColors(usedColors);
     }
 
     /// <summary>

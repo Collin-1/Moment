@@ -2,159 +2,132 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>About Moment | Ephemeral by Design</title>
-    <meta
-      name="description"
-      content="Moment was built for conversations that should dissolve. Learn the philosophy behind ephemeral, secure rooms."
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>About | Moment</title>
+    <meta name="description" content="Why Moment exists: conversations that end when you do, with nothing left behind." />
+    <meta name="theme-color" content="#0c1e31" />
     <link rel="icon" href="/favicon.ico" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Sora:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:ital,wght@0,400;0,500;0,600;1,900&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/css/marketing.css" />
+    <link rel="stylesheet" href="/css/moment.css" />
   </head>
   <body>
-    <header class="nav">
+    <header class="nav solid">
       <div class="container nav-inner">
-        <a class="brand" href="/index.html">
-          <img src="/images/exports/Logo-1.png" alt="Moment logo" />
-          Moment
-        </a>
-        <nav class="nav-links">
-          <a href="/about.html">About</a>
-          <a href="/contact.html">Contact</a>
-        </nav>
+        <a class="brand" href="/">m<span aria-hidden="true">&#9679;</span>ment</a>
         <a class="nav-cta" href="/Room/Create">Create a moment</a>
       </div>
     </header>
 
     <main>
-      <section class="hero">
-        <div class="container hero-grid">
-          <div class="hero-copy">
-            <div class="section-title">About Moment</div>
-            <h1 class="fade-in">Privacy that ends when the room ends.</h1>
-            <p class="fade-in delay-1">
-              Moment rejects the modern archive. We created a space where people
-              can speak honestly and leave without a trail.
-            </p>
-          </div>
-          <div class="hero-visual fade-in delay-2">
-            <img
-              src="/images/exports/Participant%20Screen%20-%20Bottom.png"
-              alt="Moment room participants"
-            />
-            <div class="hero-badge">Designed for trust, not storage.</div>
-          </div>
+      <section class="page-hero">
+        <div class="container">
+          <div class="kicker">About</div>
+          <h1>Conversations deserve a closing ritual.</h1>
+          <p class="lede">
+            Most tools are built to remember. Moment is built to forget &mdash; on a timer
+            everyone in the room can see.
+          </p>
         </div>
       </section>
 
       <section class="section reality">
-        <div class="container reality-grid">
-          <div class="reality-copy fade-in">
-            <div class="section-title">Why we exist</div>
-            <h2>Conversations deserve a closing ritual.</h2>
-            <p>
-              Most platforms keep logs by default. Moment treats the end of a
-              conversation as sacred. The room closes, the memory ends, and no
-              permanent record remains.
-            </p>
-            <div class="card-grid">
-              <div class="card">
-                <h3>Ephemeral by design</h3>
-                <p>
-                  Nothing is stored or indexed. The room is the only place the
-                  conversation exists.
-                </p>
-              </div>
-              <div class="card">
-                <h3>Shared control</h3>
-                <p>
-                  Everyone can call a vote to close or extend. The room ends
-                  together.
-                </p>
-              </div>
-              <div class="card">
-                <h3>Frictionless access</h3>
-                <p>
-                  No accounts, no logins, no identity layer. Just a link and a
-                  timer.
-                </p>
-              </div>
-            </div>
-          </div>
-          <div class="reality-visual fade-in delay-1">
-            <img
-              src="/images/exports/Moderator%20Screen.png"
-              alt="Moderator controls"
-            />
-          </div>
-        </div>
-      </section>
+        <div class="container prose fade-in">
+          <h2>Presence over permanence</h2>
+          <p>
+            Every messaging app you use is an archive with a chat window attached. The
+            conversation is the interface; the record is the product. That trade is invisible
+            until the day it matters &mdash; a subpoena, a breach, a screenshot, a colleague
+            scrolling back through eighteen months of context.
+          </p>
+          <p>
+            Moment inverts it. A room exists for as long as you set it to, and then it is
+            gone: not archived, not soft-deleted, not recoverable by an administrator. The
+            countdown is visible to everyone in the room, because knowing a conversation will
+            end changes how people speak in it.
+          </p>
 
-      <section class="section features">
-        <div class="container fade-in">
-          <div class="section-title">Principles</div>
-          <h2>Built with accountability and restraint.</h2>
-          <div class="card-grid">
-            <div class="card">
-              <h3>No cloud archives</h3>
-              <p>
-                We do not store conversation data or metadata once the room
-                ends.
-              </p>
-            </div>
-            <div class="card">
-              <h3>Explicit consent</h3>
-              <p>
-                Everyone agrees to the timer and the exit. Privacy is the
-                default.
-              </p>
-            </div>
-            <div class="card">
-              <h3>Presence over permanence</h3>
-              <p>
-                Moment exists for the live exchange, not for later retrieval.
-              </p>
-            </div>
-          </div>
+          <h2>What we keep, and what we do not</h2>
+          <p>Being specific matters more than sounding reassuring, so here is the whole of it.</p>
+          <ul>
+            <li>
+              <strong>No accounts.</strong> There is no sign-up, no email, no phone number. A
+              participant is a display name and a colour that exist only inside one room.
+            </li>
+            <li>
+              <strong>Messages live in memory.</strong> They are held in the running process
+              for the life of the room and are never written to a database or a log file. When
+              the room expires the memory is released and there is nothing left to recover.
+            </li>
+            <li>
+              <strong>Calls are peer-to-peer.</strong> Audio and video travel directly between
+              browsers. The server helps the two ends find each other and then steps out of the
+              path entirely &mdash; it never receives the media, so it cannot record it.
+            </li>
+            <li>
+              <strong>Nobody owns the room.</strong> Anyone can call a vote to end it. A
+              majority closes it. Saving a transcript needs a unanimous vote and writes a file
+              to your own device, never to us.
+            </li>
+          </ul>
+
+          <h2>What we will not claim</h2>
+          <p>
+            We do not block screenshots. No web application can, and a product that promises it
+            is asking you to trust something it cannot deliver. Anyone in a room can photograph
+            their own screen, and no amount of engineering changes that. What we can promise is
+            that <em>we</em> keep nothing &mdash; so the only copy that can ever exist is one a
+            participant deliberately chose to make.
+          </p>
+          <p>
+            We also do not claim end-to-end encryption for text. Messages pass through the
+            server in memory so the room can show them to everyone present. Calls, being
+            peer-to-peer, are encrypted between browsers by WebRTC as a matter of course.
+          </p>
         </div>
       </section>
 
       <section class="section cta">
         <div class="container fade-in">
-          <div class="section-title">Ready</div>
+          <div class="kicker">Get started</div>
           <h2>Start a moment in under 12 seconds.</h2>
-          <p>Create a room and invite people into a space that ends on time.</p>
+          <p class="lede">Create a room and invite people into a space that ends on time.</p>
           <div class="cta-actions">
             <a class="button primary" href="/Room/Create">Create a moment</a>
-            <a class="button ghost" href="/contact.html">Talk to us</a>
+            <a class="button secondary" href="/Room/Join">Join with code</a>
           </div>
         </div>
       </section>
+
     </main>
 
     <footer class="footer">
-      <div class="container footer-grid">
-        <div>
-          <strong>Moment</strong>
-          <p>
-            Secure, ephemeral rooms for conversations that should not linger.
-          </p>
+      <div class="container">
+        <div class="footer-grid">
+          <div>
+            <strong>m&#9679;ment</strong>
+            <p>Secure, ephemeral rooms for conversations that should not linger.</p>
+          </div>
+          <div>
+            <p><a href="/about.html">About</a></p>
+            <p><a href="/contact.html">Contact</a></p>
+          </div>
+          <div>
+            <p><a href="/Room/Create">Create a moment</a></p>
+            <p><a href="/Room/Join">Join with code</a></p>
+          </div>
         </div>
-        <div>
-          <p><a href="/index.html">Home</a></p>
-          <p><a href="/contact.html">Contact</a></p>
-        </div>
-        <div>
-          <p><a href="/Room/Create">Create a moment</a></p>
-          <p><a href="/Room/Join">Join with code</a></p>
-        </div>
+        <p class="footer-note">
+          Rooms are held in memory only and disappear when they expire or when the server
+          restarts. That is the product, not a limitation.
+        </p>
       </div>
     </footer>
+
+    <script src="/js/marketing.js" type="module"></script>
   </body>
 </html>

@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.0" />
+    <!-- The SignalR *server* ships in the Microsoft.NET.Sdk.Web shared framework, and the
+         browser loads the SignalR client from a CDN. A SignalR.Client package reference here
+         was unused, and pinned a 10.x package against a net9.0 target. -->
     <PackageReference Include="QRCoder" Version="1.7.0" />
   </ItemGroup>
 
