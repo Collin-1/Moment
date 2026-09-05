@@ -1,0 +1,947 @@
+/* ============================================================================
+   Moment — design system
+   Tokens and values taken from the Figma file (rZ8d1VL6174e2EY50nuJ5k).
+   Shared by the marketing pages and the app shell so there is one visual
+   language rather than the two unrelated ones this project used to carry.
+   ============================================================================ */
+
+:root {
+  /* Surfaces, light to dark */
+  --sky:        #a3d5ff;  /* hero + closing CTA */
+  --mist:       #daeeff;  /* the reality, features */
+  --frost:      #f3f9fd;  /* who it is for */
+  --white:      #ffffff;
+  --deep:       #0c1f32;  /* how it works */
+
+  /* Ink and accent */
+  --navy:       #002664;  /* headings, body copy, filled buttons */
+  --azure:      #4492ca;  /* kickers, rules, secondary text */
+  --bright:     #76befa;  /* step circles, orbit strokes */
+  --teal:       #004e64;  /* primary button border and label */
+  --edge:       #bbdfef;  /* hairline borders */
+
+  /* App surfaces (dark), shared with the room UI */
+  --app-bg:     #0c1e31;
+  --app-panel:  #0b1b2d;
+  --app-raised: #102539;
+  --app-pill:   #12283d;
+  --app-text:   #daeeff;
+  --live:       #00ff4d;
+  --danger:     #ff4949;
+
+  /* Type */
+  --font-display: "Syne", "Segoe UI", system-ui, sans-serif;
+  --font-ui:      "Inter", "Segoe UI", system-ui, sans-serif;
+
+  /* Depth. The offset drop shadow is a signature of the Figma buttons. */
+  --shadow-button: 8px 8px 2.15px rgba(0, 0, 0, 0.25);
+  --shadow-card:   0 18px 40px rgba(0, 38, 100, 0.08);
+
+  --radius-pill: 40px;
+  --radius-card: 24px;
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--navy);
+  background: var(--white);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+
+/* ----------------------------------------------------------------- layout */
+
+.container {
+  width: min(1200px, 92vw);
+  margin-inline: auto;
+}
+
+.section {
+  padding: clamp(64px, 8vw, 110px) 0;
+}
+
+/* Kicker: a 58px rule, a gap, then uppercase label — the Figma section marker. */
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: clamp(0.85rem, 1.2vw, 1.5rem);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--azure);
+  margin-bottom: clamp(20px, 3vw, 40px);
+}
+
+.kicker::before {
+  content: "";
+  inline-size: 58px;
+  block-size: 1px;
+  background: currentColor;
+  flex: 0 0 58px;
+}
+
+.section h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.2vw, 5rem);
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--navy);
+}
+
+/* Outline-only text. Used for "private." in the reality heading, where the
+   hollow word is the whole point of the line. */
+.outline-text {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--navy);
+  text-stroke: 2px var(--navy);
+  paint-order: stroke fill;
+}
+
+.lede {
+  font-size: clamp(1rem, 1.4vw, 1.5rem);
+  line-height: 1.55;
+  color: var(--navy);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(14px, 1.6vw, 24px) clamp(24px, 2.6vw, 40px);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-size: clamp(0.95rem, 1.25vw, 1.5rem);
+  font-weight: 400;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  filter: drop-shadow(var(--shadow-button));
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.button:hover { transform: translate(-2px, -2px); filter: drop-shadow(10px 10px 2.15px rgba(0, 0, 0, 0.28)); }
+.button:active { transform: translate(2px, 2px); filter: drop-shadow(4px 4px 2.15px rgba(0, 0, 0, 0.25)); }
+
+.button.primary {
+  background: var(--white);
+  border: 3px solid var(--teal);
+  color: var(--teal);
+}
+
+.button.secondary {
+  background: var(--navy);
+  border: 3px solid var(--white);
+  color: var(--white);
+}
+
+/* ------------------------------------------------------------------- nav */
+
+.nav {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  z-index: 10;
+  padding: clamp(18px, 2.4vw, 40px) 0;
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.brand {
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-style: italic;
+  font-size: clamp(1.4rem, 2.2vw, 2.5rem);
+  color: var(--white);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  padding: clamp(10px, 1vw, 16px) clamp(18px, 1.8vw, 32px);
+  border-radius: var(--radius-pill);
+  background: var(--white);
+  border: 2px solid var(--teal);
+  color: var(--teal);
+  font-family: var(--font-ui);
+  font-size: clamp(0.85rem, 1vw, 1.25rem);
+  text-decoration: none;
+  filter: drop-shadow(4px 4px 2px rgba(0, 0, 0, 0.2));
+}
+
+/* ------------------------------------------------------------------ hero */
+
+.hero {
+  position: relative;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--sky);
+}
+
+/* Soft cloud field. These are heavily blurred rounded rectangles in the
+   design, not a bitmap — so they are drawn in CSS and stay crisp at any size. */
+.clouds {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  filter: blur(40px);
+}
+
+.cloud:nth-child(1) { left: 7%;  top: 38%; width: 18%; height: 13%; }
+.cloud:nth-child(2) { left: 40%; top: 30%; width: 30%; height: 26%; filter: blur(55px); }
+.cloud:nth-child(3) { left: 61%; top: 8%;  width: 30%; height: 26%; filter: blur(50px); }
+.cloud:nth-child(4) { left: 5%;  top: 13%; width: 29%; height: 21%; filter: blur(45px); }
+.cloud:nth-child(5) { left: 9%;  top: 77%; width: 33%; height: 14%; filter: blur(45px); }
+.cloud:nth-child(6) { left: 78%; top: 58%; width: 22%; height: 19%; filter: blur(45px); }
+.cloud:nth-child(7) { left: 58%; top: 79%; width: 22%; height: 19%; filter: blur(45px); }
+
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  padding-block: clamp(48px, 6vh, 96px);
+}
+
+/* The wordmark spans the full viewport in the design, not the content column — it is
+   the one element deliberately allowed to reach both edges. */
+.wordmark-bleed {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  padding-top: clamp(96px, 12vh, 180px);
+  overflow: hidden;
+}
+
+/* The wordmark is Inter Black Italic in the design, deliberately different
+   from the Syne used everywhere else — it reads as a logotype, not a heading. */
+.wordmark {
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-style: italic;
+  /* 24vw reproduces the Figma ratio: a 460px face spans 1904px of a 1920px frame. */
+  font-size: clamp(3.5rem, 23vw, 28.75rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  color: var(--white);
+  margin: 0;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The "o" is replaced by a dashed ring around a solid disc. Sized in em so it
+   tracks the wordmark exactly at every viewport width. */
+.wordmark-o {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 0.589em;
+  block-size: 0.589em;
+  margin-inline: 0.02em;
+  border: 0.0043em dashed var(--white);
+  border-radius: 50%;
+  flex: none;
+}
+
+.wordmark-o::after {
+  content: "";
+  inline-size: 0.239em;
+  block-size: 0.239em;
+  border-radius: 50%;
+  background: var(--white);
+  border: 0.0043em solid var(--edge);
+  box-shadow: 0.0087em 0.0087em 0.0087em rgba(0, 0, 0, 0.25);
+}
+
+.hero-foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+  margin-top: clamp(28px, 4vh, 56px);
+}
+
+.hero-copy {
+  font-size: clamp(1rem, 1.6vw, 2rem);
+  line-height: 1.35;
+  color: var(--navy);
+  max-width: 22ch;
+  margin: 0;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(12px, 1.6vw, 24px);
+  justify-self: center;
+}
+
+/* Dashed speech-bubble outlines, bottom right of the hero. */
+.hero-bubbles {
+  justify-self: end;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: clamp(8px, 1.4vw, 20px);
+}
+
+.bubble {
+  position: relative;
+  inline-size: clamp(90px, 11vw, 200px);
+  block-size: clamp(48px, 5vw, 90px);
+  border: 2px dashed var(--teal);
+  opacity: 0.55;
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 100%;
+  inset-inline-start: 12%;
+  inline-size: 22%;
+  block-size: 34%;
+  border-inline-start: 2px dashed var(--teal);
+  border-block-end: 2px dashed var(--teal);
+  transform: skewX(28deg);
+}
+
+.bubble.alt { align-self: flex-end; margin-inline-end: clamp(-24px, -2vw, -4px); }
+
+/* --------------------------------------------------------------- marquee */
+
+.marquee {
+  background: var(--white);
+  padding: 14px 0;
+  overflow: hidden;
+}
+
+.marquee-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(16px, 3vw, 48px);
+  flex-wrap: wrap;
+}
+
+.marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: clamp(0.6rem, 0.85vw, 0.95rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--navy);
+  white-space: nowrap;
+}
+
+/* Dashed ring with a solid core — the bullet motif from the design. */
+.marquee-item::before {
+  content: "";
+  inline-size: 1.5em;
+  block-size: 1.5em;
+  border: 1px dashed var(--bright);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, var(--bright) 0 32%, transparent 33%);
+  flex: none;
+}
+
+/* --------------------------------------------------------------- reality */
+
+.reality { background: var(--mist); }
+
+.reality-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: clamp(32px, 5vw, 80px);
+  align-items: start;
+}
+
+.reality-stat {
+  display: grid;
+  grid-template-columns: minmax(90px, auto) minmax(0, 1fr);
+  gap: clamp(16px, 2vw, 24px);
+  align-items: start;
+  margin-bottom: clamp(28px, 3.5vw, 48px);
+}
+
+.reality-number {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.6rem, 5vw, 6rem);
+  line-height: 1;
+  color: var(--navy);
+  white-space: nowrap;
+}
+
+/* The percent sign is lighter and half the size in the design. */
+.reality-number sup {
+  font-weight: 400;
+  font-size: 0.5em;
+  vertical-align: baseline;
+  top: 0;
+}
+
+.reality-stat h3 {
+  font-weight: 600;
+  font-size: clamp(1.05rem, 1.7vw, 2rem);
+  margin: 0 0 0.5em;
+  color: var(--navy);
+}
+
+.reality-stat p {
+  margin: 0;
+  font-size: clamp(0.9rem, 1.25vw, 1.5rem);
+  line-height: 1.45;
+  color: var(--navy);
+}
+
+/* -------------------------------------------------- who it is for / orbit */
+
+.audience { background: var(--frost); }
+
+.audience-orbit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 0.8fr) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px) clamp(20px, 3vw, 40px);
+  align-items: center;
+  margin-top: clamp(40px, 6vw, 90px);
+}
+
+.orbit-cell h3 {
+  font-weight: 600;
+  font-size: clamp(1.05rem, 1.7vw, 2rem);
+  margin: 0 0 0.5em;
+  color: var(--navy);
+}
+
+.orbit-cell p {
+  margin: 0 0 0.7em;
+  font-size: clamp(0.85rem, 1.15vw, 1.35rem);
+  line-height: 1.45;
+  color: var(--navy);
+}
+
+.orbit-quote {
+  display: block;
+  font-size: clamp(0.75rem, 1vw, 1.1rem);
+  color: var(--azure);
+  line-height: 1.4;
+}
+
+/* Left column is right-aligned so both columns read inward toward the ring. */
+.orbit-cell.left { text-align: right; }
+
+.orbit-graphic {
+  position: relative;
+  grid-row: span 2;
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 560px;
+  margin-inline: auto;
+}
+
+.orbit-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--azure);
+  border-radius: 50%;
+}
+
+.orbit-core {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: 50%;
+  translate: -50% -50%;
+  inline-size: 24.5%;
+  block-size: 24.5%;
+  border-radius: 50%;
+  background: var(--azure);
+}
+
+.orbit-dot {
+  position: absolute;
+  inline-size: 9.8%;
+  block-size: 9.8%;
+  border-radius: 50%;
+  background: var(--azure);
+}
+
+.orbit-dot.tl { left: 9.3%;  top: 9.1%; }
+.orbit-dot.tr { right: 9.8%; top: 9.1%; }
+.orbit-dot.bl { left: 5.9%;  bottom: 15.9%; }
+.orbit-dot.br { right: 3.4%; bottom: 15.9%; }
+
+/* -------------------------------------------------------------- features */
+
+.features { background: var(--mist); }
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(24px, 3vw, 48px);
+  align-items: start;
+}
+
+.features-col {
+  display: grid;
+  gap: clamp(16px, 2vw, 28px);
+  align-content: start;
+}
+
+.features-head { margin-bottom: clamp(16px, 3vw, 40px); }
+
+.feature-card {
+  background: var(--white);
+  border-radius: var(--radius-card);
+  padding: clamp(20px, 2.4vw, 40px);
+  box-shadow: var(--shadow-card);
+}
+
+/* One card in the design is outlined rather than filled, which stops the
+   column reading as an undifferentiated stack. */
+.feature-card.outline {
+  background: transparent;
+  border: 2px solid var(--navy);
+  box-shadow: none;
+}
+
+.feature-card h3 {
+  margin: 0 0 0.5em;
+  font-weight: 600;
+  font-size: clamp(1.05rem, 1.5vw, 1.75rem);
+  color: var(--navy);
+}
+
+.feature-card p {
+  margin: 0;
+  font-size: clamp(0.85rem, 1.1vw, 1.25rem);
+  line-height: 1.45;
+  color: var(--navy);
+}
+
+/* Deliberate vertical offsets: the design staggers the cards rather than aligning them
+   on a strict grid, so the two columns never form a readable row. */
+.feature-card.push { margin-top: clamp(24px, 6vw, 110px); }
+
+/* ------------------------------------------------------------------- cta */
+
+.cta {
+  background: var(--sky);
+  text-align: center;
+}
+
+.cta h2 {
+  color: var(--white);
+  font-size: clamp(2.4rem, 6vw, 7rem);
+  font-weight: 500;
+  margin: clamp(24px, 5vh, 80px) 0 clamp(16px, 3vh, 40px);
+}
+
+.cta .lede { margin-inline: auto; max-width: 34ch; }
+
+.cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(12px, 2vw, 24px);
+  justify-content: center;
+  margin-top: clamp(40px, 8vh, 120px);
+}
+
+.cta .kicker { justify-content: flex-start; }
+
+/* ---------------------------------------------------------------- footer */
+
+.footer {
+  background: var(--deep);
+  color: rgba(214, 231, 255, 0.78);
+  padding: clamp(40px, 5vw, 64px) 0 clamp(32px, 4vw, 56px);
+  font-size: 0.95rem;
+}
+
+.footer-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: clamp(24px, 4vw, 64px);
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.footer strong {
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-style: italic;
+  font-size: 1.5rem;
+  color: var(--white);
+  display: block;
+  margin-bottom: 0.5em;
+}
+
+.footer p { margin: 0 0 0.5em; max-width: 34ch; }
+.footer a { color: rgba(214, 231, 255, 0.78); text-decoration: none; }
+.footer a:hover { color: var(--white); text-decoration: underline; }
+.footer-note { margin-top: clamp(24px, 3vw, 40px); font-size: 0.8rem; opacity: 0.6; }
+
+/* -------------------------------------------------------------- motion */
+
+/* Content is visible by default and only hidden once the reveal script has signalled that
+   it is running. Hiding first and revealing with JS means any script failure — a blocked
+   module, a parse error, an old browser — silently blanks the whole page below the hero. */
+.js-reveal .fade-in {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.js-reveal .fade-in.visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Continuous or entrance motion is a comfort and a battery question, not a
+   decoration. Everything resolves to its final state instead. */
+@media (prefers-reduced-motion: reduce) {
+  .js-reveal .fade-in { opacity: 1; transform: none; transition: none; }
+  .button { transition: none; }
+  .button:hover, .button:active { transform: none; }
+}
+
+/* ---------------------------------------------------------- responsive */
+
+@media (max-width: 980px) {
+  .hero-foot {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    gap: 28px;
+  }
+
+  .hero-copy { max-width: 34ch; }
+  .hero-bubbles { display: none; }
+
+  .reality-grid,
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Stacked, the stagger just creates dead space. */
+  .feature-card.push { margin-top: 0; }
+
+  .audience-orbit {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .orbit-cell.left { text-align: center; }
+
+  .orbit-graphic {
+    grid-row: auto;
+    order: -1;
+    width: min(260px, 60vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .reality-stat {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .marquee-track { justify-content: center; }
+  .nav-cta { padding: 8px 14px; }
+}
+
+/* ------------------------------------------------- how it works (process)
+   Pinned to the Figma frame's 1920x1771 coordinate space: the step circles
+   and the dashed bezier connectors share one canvas, so the wires meet the
+   circles exactly at every width. Below 980px the canvas collapses to a
+   plain stack and the wires are dropped, since they have nothing to connect.
+   ------------------------------------------------------------------------ */
+.process {
+  background: var(--deep);
+  color: var(--white);
+}
+
+.process .container {
+  width: min(1320px, 94vw);
+}
+
+/* Fixed 1920 x 1771 design canvas: steps and connector wires share one
+   coordinate space so the dashed béziers line up with the number circles. */
+.process-canvas {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1920 / 1771;
+}
+
+.process-wires {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.process-wires .wire {
+  fill: none;
+  stroke: var(--azure);
+  stroke-width: 2;
+  stroke-dasharray: 14 16;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.process-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  align-items: center;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.process-watermark span {
+  font-size: clamp(6rem, 18vw, 16rem);
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: rgba(163, 213, 255, 0.04);
+  line-height: 1;
+  user-select: none;
+  transform: rotate(-6deg);
+}
+
+.process-head {
+  position: absolute;
+  left: 4.19%;
+  top: 1.5%;
+  width: 36%;
+  z-index: 1;
+}
+
+.process-head .kicker {
+  justify-content: flex-start;
+  color: rgba(120, 180, 255, 0.7);
+}
+
+.process-head h2 {
+  color: var(--white);
+  font-size: clamp(2rem, 4.2vw, 4rem);
+  line-height: 1.05;
+  margin: 12px 0 16px;
+}
+
+.process-head p {
+  font-size: clamp(0.85rem, 1.3vw, 1.05rem);
+  color: rgba(214, 231, 255, 0.8);
+  line-height: 1.6;
+  max-width: 32ch;
+}
+
+.process-step {
+  position: absolute;
+  display: flex;
+  align-items: flex-start;
+  gap: 4%;
+  width: 33%;
+  z-index: 1;
+}
+
+.step-1 {
+  left: 59.56%;
+  top: 24.62%;
+}
+.step-2 {
+  left: 4.19%;
+  top: 39.5%;
+}
+.step-3 {
+  left: 59.56%;
+  top: 55.2%;
+}
+.step-4 {
+  left: 4.19%;
+  top: 71.57%;
+}
+.step-5 {
+  left: 58.93%;
+  top: 87.95%;
+}
+
+.process-number {
+  flex: 0 0 13%;
+  width: 13%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid var(--bright);
+  background: rgba(32, 58, 80, 0.72);
+  color: var(--bright);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: clamp(0.9rem, 1.9vw, 2.2rem);
+  box-shadow:
+    0 0 24px rgba(118, 190, 250, 0.18),
+    inset 0 0 14px rgba(255, 255, 255, 0.06);
+}
+
+.process-body h3 {
+  margin: 0.2em 0 0.5em;
+  font-size: clamp(1rem, 1.6vw, 1.55rem);
+  color: #f3f8ff;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.process-body p {
+  margin: 0 0 0.8em;
+  color: rgba(214, 231, 255, 0.78);
+  font-size: clamp(0.8rem, 1.15vw, 1rem);
+  line-height: 1.55;
+}
+
+.process-meta {
+  font-size: clamp(0.62rem, 0.85vw, 0.78rem);
+  color: rgba(120, 180, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Stacked layout below the design breakpoint */
+@media (max-width: 980px) {
+  .process-canvas {
+    aspect-ratio: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+  }
+  .process-wires,
+  .process-watermark {
+    display: none;
+  }
+  .process-head,
+  .process-step {
+    position: static;
+    left: auto;
+    top: auto;
+    width: 100%;
+  }
+  .process-head {
+    max-width: 640px;
+  }
+  .process-step {
+    gap: 18px;
+  }
+  .process-number {
+    flex: 0 0 54px;
+    width: 54px;
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .process-step {
+    flex-direction: column;
+    gap: 14px;
+  }
+}
+
+/* ------------------------------------------- secondary pages (about, contact)
+   No Figma frame exists for these, so they are built from the same primitives:
+   a solid-navy header instead of the hero overlay, and a measured prose column. */
+
+.nav.solid {
+  position: static;
+  background: var(--deep);
+}
+
+.nav.solid .brand { color: var(--white); }
+
+.page-hero {
+  background: var(--deep);
+  color: var(--white);
+  padding: clamp(48px, 7vw, 96px) 0 clamp(56px, 8vw, 120px);
+}
+
+.page-hero .kicker { color: var(--bright); }
+
+.page-hero h1 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.1rem, 4.5vw, 4.5rem);
+  line-height: 1.1;
+  margin: 0 0 clamp(16px, 2vw, 28px);
+  color: var(--white);
+  max-width: 20ch;
+}
+
+.page-hero .lede { color: rgba(214, 231, 255, 0.82); max-width: 46ch; }
+
+/* A measured column: long-form copy needs a line length, not the full grid. */
+.prose { max-width: 46rem; }
+
+.prose h2 {
+  font-size: clamp(1.4rem, 2.4vw, 2.5rem);
+  margin: clamp(32px, 4vw, 56px) 0 0.6em;
+}
+
+.prose h2:first-child { margin-top: 0; }
+
+.prose p,
+.prose li {
+  font-size: clamp(0.95rem, 1.2vw, 1.2rem);
+  line-height: 1.65;
+  margin: 0 0 1em;
+}
+
+.prose ul { padding-inline-start: 1.2em; margin: 0 0 1.5em; }
+.prose strong { font-weight: 600; }
+.prose a { color: var(--azure); }
+
+.contact-cards {
+  display: grid;
+  gap: clamp(16px, 2vw, 28px);
+  max-width: 46rem;
+  margin-inline: auto;
+}
+
+.contact-cards a { color: var(--azure); text-decoration: none; font-weight: 600; }
+.contact-cards a:hover { text-decoration: underline; }
