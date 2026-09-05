@@ -1,17 +1,13 @@
 namespace MomentApp.Models;
 
 /// <summary>
-/// Defines the type of room for chat sessions
+/// What a room opens into. Every room supports text, voice and video regardless — this
+/// chooses the surface a participant lands on, so a room created for a call does not open
+/// into a chat window they then have to leave.
 /// </summary>
 public enum RoomType
 {
-    /// <summary>
-    /// One-on-one private conversation
-    /// </summary>
-    OneOnOne,
-
-    /// <summary>
-    /// Group conversation with multiple participants
-    /// </summary>
-    Group
+    Chat,
+    Video,
+    Voice
 }

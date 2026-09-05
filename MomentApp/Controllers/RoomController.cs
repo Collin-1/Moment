@@ -50,8 +50,8 @@ public class RoomController : Controller
 
         try
         {
-            var expiry = TimeSpan.FromHours(model.ExpiryHours);
-            var room = _roomService.CreateRoom(model.Name, expiry, model.RoomType);
+            var expiry = TimeSpan.FromMinutes(model.ExpiryMinutes);
+            var room = _roomService.CreateRoom(model.Name, model.Description, expiry, model.RoomType);
 
             _logger.LogInformation($"Room created: {room.Id}");
 
@@ -85,7 +85,9 @@ public class RoomController : Controller
             RoomName = room.Name,
             ShareableLink = shareableLink!,
             QRCodeDataUrl = qrCodeDataUrl,
-            ExpiresAt = room.ExpiresAt
+            ExpiresAt = room.ExpiresAt,
+            ExpiryMinutes = (int)Math.Round((room.ExpiresAt - room.CreatedAt).TotalMinutes),
+            RoomType = room.Type
         };
 
         return View(viewModel);

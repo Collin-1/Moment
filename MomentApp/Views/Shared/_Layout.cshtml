@@ -1,35 +1,32 @@
-﻿<!DOCTYPE html>
+@using MomentApp.Configuration
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>@ViewData["Title"] - Moment</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <meta name="theme-color" content="#0c1e31" />
+    <link rel="icon" href="~/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Inter:ital,wght@0,400;0,500;0,600;1,900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="@ClientAssets.Versioned("/css/moment.css")" />
     @await RenderSectionAsync("Styles", required: false)
 </head>
-<body>
-    <nav class="modern-nav">
-        <div class="container">
-            <a href="/" class="logo">Moment</a>
-            <ul class="nav-links">
-                <li><a asp-controller="Home" asp-action="Index">Home</a></li>
-                <li><a asp-controller="Room" asp-action="Create" class="btn btn-primary" style="padding: 0.5rem 1.25rem; font-size: 0.9rem;">Get Started</a></li>
-            </ul>
+<body class="app">
+    <header class="app-nav">
+        <div class="container nav-inner">
+            <a class="brand" asp-controller="Home" asp-action="Index">m<span aria-hidden="true">&#9679;</span>ment</a>
+            <a class="nav-cta" asp-controller="Room" asp-action="Create">Create a moment</a>
         </div>
-    </nav>
+    </header>
 
-    <main>
-        @RenderBody()
+    <main class="app-main">
+        <div class="container">
+            @RenderBody()
+        </div>
     </main>
 
-    <footer class="modern-footer">
-        <p>&copy; 2025 Moment - <a asp-controller="Home" asp-action="Privacy">Privacy</a></p>
-    </footer>
-
-    <script src="~/lib/jquery/dist/jquery.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

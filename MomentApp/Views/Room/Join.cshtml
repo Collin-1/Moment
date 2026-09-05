@@ -1,57 +1,41 @@
 @model MomentApp.Models.JoinRoomViewModel
 @{
-    ViewData["Title"] = "Join a Moment";
+    ViewData["Title"] = "Join a moment";
 }
 
-<div class="page-container">
-    <div class="modern-card" style="max-width: 600px; margin: 0 auto;">
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <h1>Join a Moment</h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Enter the 6-character room code</p>
+<div class="app-panel">
+    <h1 class="app-title">Join a moment</h1>
+    <p class="app-sub">Enter the six-character code you were given.</p>
+
+    <form asp-action="Join" method="post">
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="field">
+            <label class="field-label" asp-for="RoomCode" style="text-align: center;">Room code</label>
+            @* Uppercased as you type: codes are generated uppercase, and asking someone to
+               match the case of something they read off a screen is needless friction. *@
+            <input class="field-input code-input"
+                   asp-for="RoomCode"
+                   maxlength="6"
+                   autocomplete="off"
+                   autocapitalize="characters"
+                   spellcheck="false"
+                   data-uppercase
+                   autofocus
+                   placeholder="XXXXXX" />
+            <span class="field-error" asp-validation-for="RoomCode"></span>
         </div>
 
-        <!-- Form -->
-        <form asp-action="Join" method="post" class="modern-form">
-            @Html.AntiForgeryToken()
-            
-            <!-- Room Code Input -->
-            <div class="form-group">
-                <label asp-for="RoomCode">Room Code</label>
-                <input asp-for="RoomCode" 
-                       type="text" 
-                       maxlength="6"
-                       class="form-control"
-                       placeholder="ABC123"
-                       style="text-align: center; font-size: 2rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 1.5rem;" />
-                <span asp-validation-for="RoomCode" style="color: #ef4444; font-size: 0.875rem; display: block; margin-top: 0.5rem;"></span>
-            </div>
+        <p class="app-aside">
+            No code? <a asp-action="Create">Create a moment</a>
+        </p>
 
-            <!-- Validation Summary -->
-            <div asp-validation-summary="All" class="alert alert-warning"></div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.1rem; padding: 1rem;">
-                Continue
-            </button>
-        </form>
-
-        <!-- Help Text -->
-        <div class="alert alert-info" style="margin-top: 2rem;">
-            <p style="margin: 0; font-size: 0.875rem;">
-                <strong>💡 Tip:</strong> Room codes are 6 characters long and case-insensitive. 
-                Ask the room creator to share the code or scan their QR code.
-            </p>
+        <div class="app-actions">
+            <button type="submit" class="button primary">Join room</button>
         </div>
-    </div>
+    </form>
 </div>
 
 @section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-    <script>
-        // Auto-uppercase input
-        document.querySelector('input[name="RoomCode"]').addEventListener('input', function(e) {
-            e.target.value = e.target.value.toUpperCase();
-        });
-    </script>
+    <script type="module" src="/js/app.js"></script>
 }

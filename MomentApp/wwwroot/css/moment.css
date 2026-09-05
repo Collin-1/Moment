@@ -945,3 +945,331 @@ a { color: inherit; }
 
 .contact-cards a { color: var(--azure); text-decoration: none; font-weight: 600; }
 .contact-cards a:hover { text-decoration: underline; }
+
+/* ============================================================================
+   App shell — the dark screens (create, join, display name, room ended).
+   Same tokens as the marketing pages; the surfaces are simply the dark set.
+   ============================================================================ */
+
+body.app {
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A soft radial wash keeps the large flat area from reading as a dead rectangle,
+   matching the subtle gradient in the design. */
+body.app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(68, 146, 202, 0.16), transparent 45%),
+    radial-gradient(circle at 82% 78%, rgba(118, 190, 250, 0.1), transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.app > * { position: relative; z-index: 1; }
+
+.app-nav {
+  padding: clamp(16px, 2.5vw, 32px) 0;
+}
+
+.app-nav .brand { color: var(--white); font-size: clamp(1.2rem, 1.8vw, 1.6rem); }
+
+.app-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  padding: clamp(24px, 4vw, 64px) 0 clamp(48px, 6vw, 96px);
+}
+
+.app-panel {
+  width: min(720px, 100%);
+  margin-inline: auto;
+}
+
+.app-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  line-height: 1.05;
+  text-align: center;
+  color: var(--white);
+  margin: 0;
+}
+
+.app-sub {
+  text-align: center;
+  color: rgba(214, 231, 255, 0.72);
+  font-size: clamp(0.95rem, 1.2vw, 1.15rem);
+  margin: 0.75em 0 clamp(28px, 4vw, 48px);
+}
+
+/* ------------------------------------------------------------------- forms */
+
+/* Grouping radios in a fieldset is the right semantics for a screen reader, but its
+   default border and legend inset are not in the design. */
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
+}
+
+legend { padding: 0; }
+
+.field { margin-bottom: clamp(20px, 2.5vw, 32px); }
+
+.field-label {
+  display: block;
+  font-weight: 600;
+  font-size: clamp(0.95rem, 1.1vw, 1.1rem);
+  color: var(--app-text);
+  margin-bottom: 12px;
+}
+
+.field-label .optional {
+  font-weight: 400;
+  color: rgba(214, 231, 255, 0.45);
+}
+
+.field-input {
+  width: 100%;
+  padding: 18px 24px;
+  border-radius: 12px;
+  border: 1px solid var(--azure);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  font-size: clamp(0.95rem, 1.1vw, 1.1rem);
+}
+
+.field-input::placeholder { color: rgba(68, 146, 202, 0.75); }
+
+.field-input:focus-visible {
+  outline: none;
+  border-color: var(--bright);
+  box-shadow: 0 0 0 3px rgba(118, 190, 250, 0.22);
+}
+
+/* Selectable presets — duration and room type. Radios stay in the markup so the
+   form works without JavaScript and keyboard/screen-reader semantics are free. */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chip input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.chip span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(68, 146, 202, 0.5);
+  color: rgba(214, 231, 255, 0.6);
+  font-size: clamp(0.9rem, 1.05vw, 1.05rem);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.chip span:hover { border-color: var(--azure); color: var(--app-text); }
+
+.chip input:checked + span {
+  border-color: var(--bright);
+  color: var(--bright);
+  background: rgba(118, 190, 250, 0.08);
+}
+
+/* Focus has to be visible on the label, since the real radio is off-screen. */
+.chip input:focus-visible + span {
+  outline: 2px solid var(--bright);
+  outline-offset: 2px;
+}
+
+.field-hint {
+  font-size: 0.85rem;
+  color: rgba(214, 231, 255, 0.5);
+  margin-top: 10px;
+}
+
+.field-error,
+.validation-summary {
+  color: #ff9a9a;
+  font-size: 0.9rem;
+  margin-top: 8px;
+}
+
+.validation-summary ul { margin: 0; padding-inline-start: 1.2em; }
+.validation-summary:empty { display: none; }
+
+.app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+.app-actions .button { flex: 0 1 auto; }
+
+.app-aside {
+  text-align: right;
+  font-size: 0.85rem;
+  color: rgba(68, 146, 202, 0.9);
+  margin-top: 12px;
+}
+
+.app-aside a { color: inherit; }
+
+/* --------------------------------------------------- room code and sharing */
+
+.room-code {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+  letter-spacing: 0.12em;
+  /* letter-spacing adds a trailing gap after the last character, which shifts centred
+     text visibly left; the indent puts it back. */
+  text-indent: 0.12em;
+  text-align: center;
+  color: var(--bright);
+  margin: 0;
+}
+
+.copy-row { display: flex; gap: 12px; align-items: stretch; }
+.copy-row .field-input { flex: 1; min-width: 0; }
+
+.copy-btn {
+  padding: 0 22px;
+  border-radius: 12px;
+  border: 1px solid var(--azure);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.copy-btn:hover { border-color: var(--bright); color: var(--bright); }
+
+.qr {
+  display: block;
+  width: 168px;
+  height: 168px;
+  margin: clamp(20px, 3vw, 32px) auto 0;
+  border-radius: 12px;
+  background: var(--white);
+  padding: 10px;
+}
+
+/* --------------------------------------------------- code entry (join room) */
+
+.code-input {
+  width: 100%;
+  max-width: 420px;
+  margin-inline: auto;
+  display: block;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 600;
+  letter-spacing: 0.35em;
+  text-indent: 0.35em; /* re-centres text that letter-spacing pushes left */
+  text-transform: uppercase;
+  padding: 20px 16px;
+}
+
+/* ------------------------------------------------------- colour selection */
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+  gap: 12px;
+}
+
+.swatch input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.swatch span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(68, 146, 202, 0.35);
+  font-size: 0.8rem;
+  color: rgba(214, 231, 255, 0.7);
+  cursor: pointer;
+}
+
+.swatch span::before {
+  content: "";
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--swatch);
+}
+
+.swatch input:checked + span {
+  border-color: var(--bright);
+  color: var(--bright);
+  background: rgba(118, 190, 250, 0.08);
+}
+
+.swatch input:focus-visible + span {
+  outline: 2px solid var(--bright);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .app-actions { flex-direction: column; align-items: stretch; }
+  .app-actions .button { width: 100%; }
+  .copy-row { flex-direction: column; }
+  .copy-btn { padding: 14px; }
+}
+
+/* ---------------------------------------------------------- dissolve screen */
+
+.dissolve .app-title { max-width: 18ch; margin-inline: auto; }
+.dissolve .app-sub { max-width: 46ch; margin-inline: auto; }
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: clamp(16px, 2vw, 28px);
+  margin: clamp(32px, 4vw, 56px) auto 0;
+  max-width: 640px;
+  padding: clamp(20px, 2.5vw, 32px);
+  border: 1px solid rgba(68, 146, 202, 0.35);
+  border-radius: var(--radius-card);
+}
+
+.summary dt {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(214, 231, 255, 0.45);
+  margin-bottom: 6px;
+}
+
+.summary dd {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.1rem, 1.6vw, 1.4rem);
+  color: var(--app-text);
+}

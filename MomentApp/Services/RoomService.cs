@@ -14,12 +14,13 @@ public class RoomService : IRoomService
     // Excludes I, O, 0 and 1 — characters people misread when typing a code from a screen.
     private const string CodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-    public Room CreateRoom(string? name, TimeSpan expiry, RoomType type)
+    public Room CreateRoom(string? name, string? description, TimeSpan expiry, RoomType type)
     {
         var room = new Room
         {
             Id = GenerateUniqueCode(),
             Name = name,
+            Description = description,
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = DateTime.UtcNow.Add(expiry),
             Type = type

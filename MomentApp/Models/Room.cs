@@ -38,6 +38,11 @@ public class Room
     public string? Name { get; set; }
 
     /// <summary>
+    /// Optional description shown as people arrive.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
     /// Timestamp when the room was created
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -48,7 +53,7 @@ public class Room
     public DateTime ExpiresAt { get; set; }
 
     /// <summary>
-    /// Type of room (OneOnOne or Group)
+    /// Which surface this room opens into.
     /// </summary>
     public RoomType Type { get; set; }
 
