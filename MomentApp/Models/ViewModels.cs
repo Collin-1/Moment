@@ -14,17 +14,29 @@ public class CreateRoomViewModel
     public string? Name { get; set; }
 
     /// <summary>
-    /// Duration in hours until the room expires
+    /// Optional description, shown to people as they join.
     /// </summary>
-    [Required(ErrorMessage = "Please select an expiry time")]
-    [Range(1, 168, ErrorMessage = "Expiry time must be between 1 and 168 hours")]
-    public int ExpiryHours { get; set; } = 6;
+    [StringLength(140, ErrorMessage = "Description cannot exceed 140 characters")]
+    public string? Description { get; set; }
 
     /// <summary>
-    /// Type of room
+    /// Minutes until the room expires.
+    /// </summary>
+    /// <remarks>
+    /// Minutes rather than hours because the shortest offered room is 30 minutes, which an
+    /// hour-based field could not express — the landing page was advertising short rooms the
+    /// app had no way to create.
+    /// </remarks>
+    [Required(ErrorMessage = "Please choose how long this moment should last")]
+    [Range(RoomDuration.MinMinutes, RoomDuration.MaxMinutes,
+        ErrorMessage = "A moment can last between 5 minutes and 7 days")]
+    public int ExpiryMinutes { get; set; } = 60;
+
+    /// <summary>
+    /// Which surface the room opens into.
     /// </summary>
     [Required]
-    public RoomType RoomType { get; set; } = RoomType.Group;
+    public RoomType RoomType { get; set; } = RoomType.Chat;
 }
 
 /// <summary>
@@ -37,6 +49,8 @@ public class RoomCreatedViewModel
     public string ShareableLink { get; set; } = string.Empty;
     public string QRCodeDataUrl { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
+    public int ExpiryMinutes { get; set; }
+    public RoomType RoomType { get; set; }
 }
 
 /// <summary>

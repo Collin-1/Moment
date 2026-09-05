@@ -1,139 +1,68 @@
-@model MomentApp.Models.CreateRoomViewModel
+@using MomentApp.Models
+@model CreateRoomViewModel
 @{
-    ViewData["Title"] = "Create New Moment";
+    ViewData["Title"] = "Create a moment";
 }
 
-<div class="page-container">
-    <div class="modern-card" style="max-width: 700px; margin: 0 auto;">
-        <!-- Header -->
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <h1>Create New Moment</h1>
-            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Set up a temporary chat room</p>
+<div class="app-panel">
+    <h1 class="app-title">Create a new moment</h1>
+    <p class="app-sub">Set up a temporary room that ends on its own.</p>
+
+    <form asp-action="Create" method="post">
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="field">
+            <label class="field-label" asp-for="Name">
+                Room name: <span class="optional">(optional)</span>
+            </label>
+            <input class="field-input" asp-for="Name" placeholder="Team Safe" autocomplete="off" />
+            <span class="field-error" asp-validation-for="Name"></span>
         </div>
 
-        <!-- Form -->
-        <form asp-action="Create" method="post" class="modern-form">
-            @Html.AntiForgeryToken()
-            
-            <!-- Room Name -->
-            <div class="form-group">
-                <label asp-for="Name">
-                    Room Name <span style="color: var(--text-secondary); font-weight: 400;">(optional)</span>
-                </label>
-                <input asp-for="Name" 
-                       type="text" 
-                       class="form-control"
-                       placeholder="e.g., Birthday Planning, Team Sync" />
-                <span asp-validation-for="Name" style="color: #ef4444; font-size: 0.875rem;"></span>
-                <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.25rem;">Give your room a memorable name</p>
+        <div class="field">
+            <label class="field-label" asp-for="Description">
+                Room description: <span class="optional">(optional)</span>
+            </label>
+            <input class="field-input" asp-for="Description" placeholder="What is this room for?" autocomplete="off" />
+            <span class="field-error" asp-validation-for="Description"></span>
+        </div>
+
+        <fieldset class="field">
+            <legend class="field-label">Moment duration:</legend>
+            <div class="chip-row">
+                @foreach (var (minutes, label) in RoomDuration.Presets)
+                {
+                    <label class="chip">
+                        <input type="radio" asp-for="ExpiryMinutes" value="@minutes" />
+                        <span>@label</span>
+                    </label>
+                }
             </div>
+            <p class="field-hint">The countdown is visible to everyone in the room.</p>
+            <span class="field-error" asp-validation-for="ExpiryMinutes"></span>
+        </fieldset>
 
-            <!-- Expiry Time -->
-            <div class="form-group">
-                <label>How long should this last?</label>
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <label class="radio-option">
-                        <input asp-for="ExpiryHours" type="radio" value="1" />
-                        <span>1 hour</span>
+        <fieldset class="field">
+            <legend class="field-label">Room type:</legend>
+            <div class="chip-row">
+                @foreach (var type in Enum.GetValues<RoomType>())
+                {
+                    <label class="chip">
+                        <input type="radio" asp-for="RoomType" value="@type" />
+                        <span>@type</span>
                     </label>
-                    <label class="radio-option selected">
-                        <input asp-for="ExpiryHours" type="radio" value="6" checked />
-                        <span>6 hours <span style="color: var(--primary);">(Recommended)</span></span>
-                    </label>
-                    <label class="radio-option">
-                        <input asp-for="ExpiryHours" type="radio" value="24" />
-                        <span>24 hours (1 day)</span>
-                    </label>
-                    <label class="radio-option">
-                        <input asp-for="ExpiryHours" type="radio" value="72" />
-                        <span>3 days</span>
-                    </label>
-                    <label class="radio-option">
-                        <input asp-for="ExpiryHours" type="radio" value="168" />
-                        <span>7 days</span>
-                    </label>
-                </div>
-                <span asp-validation-for="ExpiryHours" style="color: #ef4444; font-size: 0.875rem;"></span>
+                }
             </div>
+            @* Every room supports all three; this only decides what opens first. *@
+            <p class="field-hint">Text, voice and video are available in every room &mdash; this just chooses where you land.</p>
+        </fieldset>
 
-            <!-- Room Type -->
-            <div class="form-group">
-                <label>Room Type</label>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-                    <label class="room-type-option selected">
-                        <input asp-for="RoomType" type="radio" value="Group" checked />
-                        <div style="text-align: center;">
-                            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">👥</div>
-                            <span>Group Chat</span>
-                        </div>
-                    </label>
-                    <label class="room-type-option">
-                        <input asp-for="RoomType" type="radio" value="OneOnOne" />
-                        <div style="text-align: center;">
-                            <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">💬</div>
-                            <span>1-on-1</span>
-                        </div>
-                    </label>
-                </div>
-                <span asp-validation-for="RoomType" style="color: #ef4444; font-size: 0.875rem;"></span>
-            </div>
+        <p class="app-aside">
+            Have an invite? <a asp-action="Join">Join with a code</a>
+        </p>
 
-            <!-- Validation Summary -->
-            <div asp-validation-summary="All" style="color: #ef4444; font-size: 0.875rem;"></div>
-
-            <!-- Submit Button -->
-            <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 1.1rem; padding: 1rem;">
-                Create Room
-            </button>
-        </form>
-    </div>
+        <div class="app-actions">
+            <button type="submit" class="button primary">Create room</button>
+        </div>
+    </form>
 </div>
-
-@section Styles {
-<style>
-    .radio-option, .room-type-option {
-        padding: 1rem 1.25rem;
-        border: 2px solid var(--border);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: flex;
-        align-items: center;
-    }
-
-    .radio-option:hover, .room-type-option:hover {
-        border-color: var(--primary);
-        background: rgba(30, 215, 96, 0.05);
-    }
-
-    .radio-option.selected, .room-type-option.selected {
-        border-color: var(--primary);
-        background: rgba(30, 215, 96, 0.1);
-    }
-
-    .radio-option input, .room-type-option input {
-        margin-right: 0.75rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        accent-color: var(--primary);
-    }
-
-    .room-type-option {
-        flex-direction: column;
-        justify-content: center;
-        padding: 1.5rem 1rem;
-    }
-
-    .room-type-option input {
-        display: none;
-    }
-
-    .room-type-option span {
-        font-weight: 600;
-    }
-</style>
-}
-
-@section Scripts {
-    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
-}

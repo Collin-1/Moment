@@ -10,7 +10,7 @@ public interface IRoomService
     /// <summary>
     /// Creates a new room with the specified parameters
     /// </summary>
-    Room CreateRoom(string? name, TimeSpan expiry, RoomType type);
+    Room CreateRoom(string? name, string? description, TimeSpan expiry, RoomType type);
 
     /// <summary>
     /// Gets a room by its code
