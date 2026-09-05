@@ -204,11 +204,14 @@ a { color: inherit; }
   justify-content: center;
   overflow: hidden;
   background: var(--sky);
-  /* The design sits the whole hero block low, with the wordmark centred around 51% of the
-     frame rather than 39%. Because the column is centre-justified, top padding moves the
-     content down by half its value. Clamped so it collapses on short viewports instead of
-     pushing the buttons off-screen. */
-  padding-block-start: clamp(0px, 16vh, 240px);
+}
+
+/* The design sits the hero block low, with the wordmark centred around 51% of the frame
+   rather than 39%. Because the column is centre-justified, top padding moves the content
+   down by half its value. It is applied only where there is headroom to spend: on a short
+   window this offset is the difference between the buttons being visible and not. */
+@media (min-height: 900px) {
+  .hero { padding-block-start: clamp(0px, 16vh, 240px); }
 }
 
 /* Soft cloud field. These are heavily blurred rounded rectangles in the
@@ -247,7 +250,7 @@ a { color: inherit; }
   position: relative;
   z-index: 1;
   width: 100%;
-  padding-top: clamp(72px, 9vh, 130px);
+  padding-top: clamp(24px, 6vh, 130px);
   padding-inline: 1%;
   overflow: hidden;
 }
@@ -261,11 +264,13 @@ a { color: inherit; }
   /* Sized so the word spans the full frame, as it does in the design: a 460px face covers
      1904px of 1920. The circle substituting the "o" is slightly narrower than the glyph, so
      this runs a little above the naive 24vw. */
-  /* Measured, not guessed: the rendered word is 4.017x its font-size. 23.6vw plus the small
-     inline padding on the wrapper spans the frame edge to edge as the design does, while
-     leaving room for the italic t, whose glyph leans past its advance width and was clipping
-     against the right edge. */
-  font-size: clamp(3.5rem, 23.6vw, 29rem);
+  /* Measured, not guessed: the rendered word is 4.017x its font-size, so 23.6vw spans the
+     frame edge to edge as the design does. The vh term is what keeps the hero on one screen:
+     a maximised browser is far wider than the 16:9 this was drawn at, and sizing off width
+     alone pushed the buttons below the fold. Whichever axis is tighter wins — at 56vh the
+     height term only binds on genuinely squashed windows, so the word stays edge to edge at
+     the ratios people actually browse at. */
+  font-size: clamp(3.5rem, min(23.6vw, 56vh), 29rem);
   line-height: 0.92;
   letter-spacing: -0.03em;
   color: var(--white);
