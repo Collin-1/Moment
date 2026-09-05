@@ -445,6 +445,35 @@ public class RoomHub : MomentHub
     }
 
     /// <summary>
+    /// Relays whether the caller is currently speaking.
+    /// </summary>
+    /// <remarks>
+    /// Relay only: deliberately not stored on the participant and not included in room state.
+    /// It goes stale the instant somebody drops mid-word, and a late joiner reading it from a
+    /// snapshot would see a participant who appears to be speaking forever.
+    ///
+    /// The value is also deduplicated here. Clients send on transition, but a buggy or
+    /// hostile one could send at frame rate, and this is the cheapest place to stop that
+    /// reaching every other participant.
+    /// </remarks>
+    public async Task SetSpeaking(string roomId, bool speaking)
+    {
+        if (!TryResolveCaller(roomId, out _, out var participant) || !participant.IsInVoice)
+        {
+            return;
+        }
+
+        var key = $"speaking:{roomId}:{participant.Id}";
+        if (Context.Items.TryGetValue(key, out var last) && last is bool previous && previous == speaking)
+        {
+            return;
+        }
+
+        Context.Items[key] = speaking;
+        await Clients.OthersInGroup(roomId).SendAsync("SpeakingChanged", participant.Id, speaking);
+    }
+
+    /// <summary>
     /// Broadcasts the caller's microphone state.
     /// </summary>
     public async Task SetMuted(string roomId, bool muted)

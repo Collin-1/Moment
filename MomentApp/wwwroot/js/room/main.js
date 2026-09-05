@@ -6,20 +6,133 @@ import { media } from "moment/rtc/media";
 import { getIceConfig } from "moment/rtc/ice";
 import {
     connectTo, handleSignal, close as closePeer, closeAll,
-    replaceVideoTrack, reconcilePeers, peerStates, stats, setPeerFailedHandler,
+    replaceVideoTrack, reconcilePeers, remoteAudioStream, audioPeerIds,
+    peerStates, stats, setPeerFailedHandler,
 } from "moment/rtc/peers";
+import { SpeakingDetector, LevelMeter, audioContext } from "moment/audio/speaking";
 import { showNotification, setReconnecting } from "moment/ui/toast";
-import { updateTimer } from "moment/ui/timer";
+import { updateTimer, initTimer } from "moment/ui/timer";
 import { addMessage, showTyping, hideTyping, scrollToBottom, initChatView } from "moment/ui/chat";
 import {
     addParticipant, removeParticipant, updateParticipantCount,
-    updateParticipantStatus, updateMediaIndicators, updateAllMediaIndicators,
+    updateParticipantStatus, updateMediaIndicators, updateAllMediaIndicators, setLevel,
 } from "moment/ui/participants";
 import { updateVotePanel, initiateVote } from "moment/ui/vote";
-import { refreshCallUi, updateVoiceUi, updateMuteUi, updateCameraUi, callStatusText } from "moment/ui/call-controls";
-import { removeRemoteVideo, updateVideoStage } from "moment/ui/video-stage";
+import { refreshCallUi, callStatusText, updateVoiceUi } from "moment/ui/call-controls";
+import {
+    attachLocalVideo, removeRemoteVideo, removeLocalVideo,
+    ensureTile, clearTiles, updateStage,
+} from "moment/ui/video-stage";
+import { renderSpeaker, setSpeakerLevel } from "moment/ui/call-view";
+import { initLayout, setMode, currentMode } from "moment/ui/layout";
 
 const HEARTBEAT_MS = 30000;
+const SPEAKING_THROTTLE_MS = 300;
+
+/** Local voice activity detector, live only while in a call. */
+let detector = null;
+/** peerId -> LevelMeter over their inbound audio. */
+const meters = new Map();
+let levelFrame = null;
+let lastSpeakingSent = 0;
+let pendingSpeaking = null;
+let speakingTimer = null;
+
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ------------------------------------------------------------ speaking + levels */
+
+function markSpeaking(participantId, speaking) {
+    if (speaking) state.speakingParticipantIds.add(participantId);
+    else state.speakingParticipantIds.delete(participantId);
+
+    // The stage follows the most recent speaker, and only moves while somebody is actually
+    // talking, so it does not reshuffle every time a sentence ends.
+    if (speaking) state.activeSpeakerId = participantId;
+
+    updateMediaIndicators(participantId);
+    renderSpeaker();
+}
+
+/** Sends our own speaking state on transitions only, rate-limited, trailing value flushed. */
+function reportSpeaking(speaking) {
+    pendingSpeaking = speaking;
+    const wait = Math.max(0, SPEAKING_THROTTLE_MS - (Date.now() - lastSpeakingSent));
+
+    const flush = () => {
+        speakingTimer = null;
+        if (pendingSpeaking === null) return;
+        lastSpeakingSent = Date.now();
+        const value = pendingSpeaking;
+        pendingSpeaking = null;
+        hub.setSpeaking(value).catch(() => {});
+    };
+
+    if (wait === 0) {
+        flush();
+        return;
+    }
+    if (!speakingTimer) speakingTimer = setTimeout(flush, wait);
+}
+
+/**
+ * Drives every waveform from one loop.
+ *
+ * requestAnimationFrame is right here — unlike the speaking boolean — because a hidden tab
+ * genuinely should stop animating waveforms, and one loop for the page beats one per
+ * participant.
+ */
+function startLevelLoop() {
+    if (levelFrame || reduceMotion) return;
+
+    const tick = () => {
+        if (detector) setLevel(selfId, detector.enabled ? detector.level : 0);
+
+        for (const [peerId, meter] of meters) {
+            setLevel(peerId, meter.sample());
+        }
+
+        const active = state.activeSpeakerId;
+        if (active) {
+            const level = active === selfId
+                ? (detector?.level ?? 0)
+                : (meters.get(active)?.level ?? 0);
+            setSpeakerLevel(level);
+        }
+
+        levelFrame = requestAnimationFrame(tick);
+    };
+
+    levelFrame = requestAnimationFrame(tick);
+}
+
+function stopLevelLoop() {
+    if (levelFrame) cancelAnimationFrame(levelFrame);
+    levelFrame = null;
+    meters.forEach((meter) => meter.stop());
+    meters.clear();
+}
+
+/** Attaches a level meter to each peer whose inbound audio has arrived. */
+function syncMeters() {
+    for (const peerId of audioPeerIds()) {
+        if (meters.has(peerId)) continue;
+        const stream = remoteAudioStream(peerId);
+        if (!stream) continue;
+        try {
+            meters.set(peerId, new LevelMeter(stream));
+        } catch (err) {
+            console.warn("level meter unavailable for", peerId, err);
+        }
+    }
+
+    for (const peerId of [...meters.keys()]) {
+        if (!state.voiceParticipantIds.has(peerId)) {
+            meters.get(peerId).stop();
+            meters.delete(peerId);
+        }
+    }
+}
 
 /* ------------------------------------------------------------------ call actions */
 
@@ -33,11 +146,24 @@ async function joinCall({ video }) {
 
     try {
         state.isVideoCall = video;
-        await media.acquire({ video });
 
-        // Fetched before joining so peer creation can read it synchronously — two signals for
-        // the same peer arriving together must not race to build two connections.
+        // Resumed here because this always runs from a tap: an AudioContext starts suspended
+        // under the autoplay policy and can only be resumed from a user gesture.
+        audioContext();
+
+        await media.acquire({ video });
         await getIceConfig();
+
+        detector = new SpeakingDetector(media.stream, {
+            onSpeakingChange: (speaking) => {
+                markSpeaking(selfId, speaking);
+                reportSpeaking(speaking);
+            },
+        });
+        startLevelLoop();
+
+        ensureTile(selfId);
+        if (video) attachLocalVideo(media.stream);
 
         refreshCallUi();
         await (video ? hub.joinVideo() : hub.joinVoice());
@@ -63,34 +189,38 @@ async function leaveCall() {
 function cleanupCall() {
     state.isInVoice = false;
     state.isVideoCall = false;
+    state.activeSpeakerId = null;
+    state.stageParticipantId = null;
     state.voiceParticipantIds.delete(selfId);
     state.videoParticipantIds.clear();
+    state.speakingParticipantIds.clear();
+
+    detector?.stop();
+    detector = null;
+    stopLevelLoop();
 
     closeAll();
     media.release();
+    clearTiles();
 
     refreshCallUi();
-    updateVideoStage();
+    renderSpeaker();
+    updateStage();
     updateAllMediaIndicators();
+    document.body.dataset.speaking = "false";
 }
 
 function toggleMute() {
     const muted = media.toggleMute();
-    updateMuteUi();
 
-    // Other participants cannot reliably detect this for themselves — a receiver's view of a
-    // muted track is inconsistent across browsers and lags by seconds — so it is broadcast.
+    // Disabling the detector while muted means a muted participant can never render as
+    // speaking anywhere, rather than every view having to check both flags.
+    detector?.setEnabled(!muted);
+    if (muted) markSpeaking(selfId, false);
+
+    refreshCallUi();
     applyMediaState(selfId, { isMuted: muted });
     hub.setMuted(muted).catch((err) => console.error("setMuted", err));
-}
-
-/** Applies a participant's media state to the roster and its indicators. */
-function applyMediaState(participantId, { isVideoOn, isMuted }) {
-    if (isMuted === true) state.mutedParticipantIds.add(participantId);
-    if (isMuted === false) state.mutedParticipantIds.delete(participantId);
-    if (isVideoOn === true) state.videoParticipantIds.add(participantId);
-    if (isVideoOn === false) state.videoParticipantIds.delete(participantId);
-    updateMediaIndicators(participantId);
 }
 
 async function toggleCamera() {
@@ -99,19 +229,63 @@ async function toggleCamera() {
         if (state.isCameraOn) {
             media.stopCamera();
             await replaceVideoTrack(null);
+            removeLocalVideo();
             await hub.setVideoEnabled(false);
         } else {
             const track = await media.startCamera();
             state.isVideoCall = true;
             await replaceVideoTrack(track);
+            attachLocalVideo(media.stream);
             await hub.setVideoEnabled(true);
+            if (currentMode() !== "video") setMode("video");
         }
-        updateCameraUi();
-        updateVideoStage();
+        refreshCallUi();
+        updateStage();
     } catch (err) {
         console.error("Camera toggle error:", err);
-        showNotification("Failed to toggle camera.");
+        showNotification("Failed to turn the camera on.");
     }
+}
+
+async function toggleScreenShare() {
+    if (!state.isInVoice) return;
+
+    try {
+        if (state.isScreenSharing) {
+            await stopSharing();
+            return;
+        }
+
+        const track = await media.startScreenShare({ onEnded: () => stopSharing() });
+        await replaceVideoTrack(track);
+        state.stageParticipantId = selfId;
+        attachLocalVideo(media.displayStream);
+        await hub.setVideoEnabled(true);
+        if (currentMode() !== "video") setMode("video");
+        refreshCallUi();
+        updateStage();
+    } catch (err) {
+        // A refused picker throws. That is a choice, not a failure worth shouting about.
+        if (err?.name !== "NotAllowedError") {
+            console.error("Screen share error:", err);
+            showNotification("Could not start screen sharing.");
+        }
+        state.isScreenSharing = false;
+        refreshCallUi();
+    }
+}
+
+async function stopSharing() {
+    const camera = media.stopScreenShare();
+    await replaceVideoTrack(camera);
+    state.stageParticipantId = null;
+
+    if (camera) attachLocalVideo(media.stream);
+    else removeLocalVideo();
+
+    await hub.setVideoEnabled(Boolean(camera)).catch(() => {});
+    refreshCallUi();
+    updateStage();
 }
 
 async function leaveRoom() {
@@ -128,23 +302,46 @@ async function leaveRoom() {
 function shareRoom() {
     const url = window.location.href;
     if (navigator.share) {
-        navigator.share({ title: "Join my Moment chat", text: "Join my chat room!", url });
+        navigator.share({ title: "Join my moment", text: "Join my room", url }).catch(() => {});
     } else {
-        navigator.clipboard.writeText(url);
-        showNotification("Link copied to clipboard!");
+        navigator.clipboard.writeText(url).then(
+            () => showNotification("Link copied to clipboard"),
+            () => showNotification("Could not copy the link"),
+        );
     }
+}
+
+/** Records a small summary for the end-of-room screen. Never leaves the browser. */
+function rememberSummary() {
+    try {
+        sessionStorage.setItem("moment:lastRoom", JSON.stringify({
+            roomCode: config.roomId,
+            duration: config.totalDuration,
+            participants: `${byId("participantsList")?.children.length ?? 0} people`,
+            messages: byId("messageCount")?.textContent ?? "0",
+        }));
+    } catch {
+        // Storage can be unavailable. The summary is a nicety, not a requirement.
+    }
+}
+
+function applyMediaState(participantId, { isVideoOn, isMuted }) {
+    if (isMuted === true) state.mutedParticipantIds.add(participantId);
+    if (isMuted === false) state.mutedParticipantIds.delete(participantId);
+    if (isVideoOn === true) state.videoParticipantIds.add(participantId);
+    if (isVideoOn === false) state.videoParticipantIds.delete(participantId);
+    updateMediaIndicators(participantId);
+    renderSpeaker();
 }
 
 /* ------------------------------------------------------------------ hub handlers */
 
 function registerHandlers() {
-    // A failed connection with no relay configured is the classic symptom of a restrictive
-    // NAT. Saying so beats a call that silently never starts.
     setPeerFailedHandler((peerId, hasRelay) => {
         const name = state.participantNames.get(peerId) || "A participant";
         showNotification(hasRelay
-            ? name + " could not be reached. Retrying..."
-            : name + " could not be reached — your networks cannot connect directly. A TURN relay is not configured.");
+            ? `${name} could not be reached. Retrying…`
+            : `${name} could not be reached — your networks cannot connect directly, and no relay is configured.`);
     });
 
     on("ReceiveMessage", addMessage);
@@ -185,38 +382,41 @@ function registerHandlers() {
     on("UserJoined", (participant) => {
         addParticipant(participant);
         updateParticipantCount();
-        showNotification(participant.displayName + " joined the room");
+        showNotification(`${participant.displayName} joined the room`);
     });
 
     on("UserLeft", (participantId, displayName) => {
         removeParticipant(participantId);
         updateParticipantCount();
-        showNotification(displayName + " left the room");
+        showNotification(`${displayName} left the room`);
     });
 
     on("ParticipantStatusChanged", updateParticipantStatus);
+    on("TimerUpdate", updateTimer);
 
     on("MediaStateChanged", (participantId, mediaState) => {
         applyMediaState(participantId, {
             isVideoOn: mediaState.isVideoOn,
             isMuted: mediaState.isMuted,
         });
-        updateVideoStage();
+        updateStage();
     });
-    on("TimerUpdate", updateTimer);
+
+    on("SpeakingChanged", markSpeaking);
 
     on("ExpiryWarning", (minutes) => {
-        showNotification("This room will expire in " + minutes + " minute" + (minutes > 1 ? "s" : "") + ".");
+        showNotification(`This room ends in ${minutes} minute${minutes > 1 ? "s" : ""}.`);
     });
 
     on("RoomClosed", () => {
+        rememberSummary();
         cleanupCall();
         window.location.href = config.closedUrl;
     });
 
-    on("VoteStarted", (initiator) => showNotification(initiator + " started a vote to close the room"));
+    on("VoteStarted", (initiator) => showNotification(`${initiator} started a vote to end the room`));
     on("VoteUpdated", updateVotePanel);
-    on("VotePassed", () => showNotification("Vote passed. The room will close in 5 minutes."));
+    on("VotePassed", () => showNotification("Vote passed. The room ends in five minutes."));
 
     on("VoiceJoined", async (payload) => {
         state.isInVoice = true;
@@ -230,23 +430,30 @@ function registerHandlers() {
         if (state.isVideoCall) state.videoParticipantIds.add(selfId);
         (payload.videoParticipants || []).forEach((p) => state.videoParticipantIds.add(p.id));
 
-        // Announce our own starting mute state so late joiners are not shown as unmuted.
+        // Announce our starting mute state so late joiners are not shown as unmuted.
         hub.setMuted(state.isMuted).catch(() => {});
 
         refreshCallUi();
+        renderSpeaker();
         updateAllMediaIndicators();
+        setMode(state.isVideoCall ? "video" : "voice");
 
         // Opening the connection creates the transceivers, which fires negotiationneeded and
         // sends the offer. There is no separate "make an offer" step.
         for (const peer of payload.participants || []) {
             connectTo(peer.id);
+            ensureTile(peer.id);
         }
+        setTimeout(syncMeters, 1500);
     });
 
     on("VoiceParticipantJoined", (participant) => {
         state.voiceParticipantIds.add(participant.id);
+        ensureTile(participant.id);
         updateVoiceUi(callStatusText());
         updateMediaIndicators(participant.id);
+        renderSpeaker();
+        setTimeout(syncMeters, 1500);
     });
 
     on("VideoParticipantJoined", (participant) => {
@@ -254,37 +461,42 @@ function registerHandlers() {
             state.participantNames.set(participant.id, participant.displayName);
         }
         state.videoParticipantIds.add(participant.id);
-        updateVideoStage();
         updateMediaIndicators(participant.id);
-        if (participant.id !== selfId && participant.displayName) {
-            showNotification(participant.displayName + " started video");
-        }
+        updateStage();
     });
 
     on("VoiceParticipantLeft", (participantId, displayName) => {
         state.voiceParticipantIds.delete(participantId);
         state.mutedParticipantIds.delete(participantId);
+        state.speakingParticipantIds.delete(participantId);
+        if (state.activeSpeakerId === participantId) state.activeSpeakerId = null;
+        if (state.stageParticipantId === participantId) state.stageParticipantId = null;
+
         closePeer(participantId);
+        removeRemoteVideo(participantId);
+        meters.get(participantId)?.stop();
+        meters.delete(participantId);
+
         updateVoiceUi(callStatusText());
         updateMediaIndicators(participantId);
+        renderSpeaker();
+        updateStage();
+
         if (displayName && participantId !== selfId) {
-            showNotification(displayName + " left the call");
+            showNotification(`${displayName} left the call`);
         }
     });
 
-    on("VideoParticipantLeft", (participantId, displayName) => {
+    on("VideoParticipantLeft", (participantId) => {
         state.videoParticipantIds.delete(participantId);
-        removeRemoteVideo(participantId);
-        updateVideoStage();
         updateMediaIndicators(participantId);
-        if (displayName && participantId !== selfId) {
-            showNotification(displayName + " stopped video");
-        }
+        updateStage();
     });
 
     on("VoiceSignal", async (signal) => {
         if (!state.isInVoice) return;
         await handleSignal(signal);
+        syncMeters();
     });
 
     on("VoiceError", (message) => {
@@ -298,8 +510,10 @@ function registerHandlers() {
 
         (roomState.participants || []).forEach((p) => {
             state.participantNames.set(p.id, p.displayName);
+            state.participantColors.set(p.id, p.colorHex);
             if (p.isMuted) state.mutedParticipantIds.add(p.id);
             else state.mutedParticipantIds.delete(p.id);
+            addParticipant(p);
         });
 
         if (roomState.voiceParticipants) {
@@ -312,33 +526,42 @@ function registerHandlers() {
             roomState.videoParticipants.forEach((p) => state.videoParticipantIds.add(p.id));
         }
 
-        updateVoiceUi(callStatusText());
-        updateVideoStage();
+        updateParticipantCount();
+        updateVotePanel(roomState.voteStatus);
+        refreshCallUi();
+        renderSpeaker();
+        updateStage();
         updateAllMediaIndicators();
     });
 }
 
-/* ------------------------------------------------------------------ wiring */
+/* ------------------------------------------------------------------------ wiring */
 
 function bindControls() {
-    byId("joinVoiceBtn").addEventListener("click", () => joinCall({ video: false }));
-    byId("joinVideoBtn").addEventListener("click", () => joinCall({ video: true }));
-    byId("leaveVoiceBtn").addEventListener("click", leaveCall);
-    byId("muteVoiceBtn").addEventListener("click", toggleMute);
-    byId("cameraToggleBtn").addEventListener("click", toggleCamera);
-    byId("voteBtn").addEventListener("click", initiateVote);
-    byId("leaveRoomBtn").addEventListener("click", leaveRoom);
-    byId("shareBtn").addEventListener("click", shareRoom);
+    byId("startCallBtn")?.addEventListener("click", () =>
+        joinCall({ video: currentMode() === "video" }));
+    byId("joinVoiceBtn")?.addEventListener("click", () => joinCall({ video: false }));
+    byId("joinVideoBtn")?.addEventListener("click", () => joinCall({ video: true }));
+    byId("leaveVoiceBtn")?.addEventListener("click", leaveCall);
+    byId("muteVoiceBtn")?.addEventListener("click", toggleMute);
+    byId("cameraToggleBtn")?.addEventListener("click", toggleCamera);
+    byId("shareScreenBtn")?.addEventListener("click", toggleScreenShare);
+    byId("voteBtn")?.addEventListener("click", initiateVote);
+    byId("leaveRoomBtn")?.addEventListener("click", leaveRoom);
+    byId("leaveRoomSheetBtn")?.addEventListener("click", leaveRoom);
+    byId("shareBtn")?.addEventListener("click", shareRoom);
 }
 
 async function boot() {
     initChatView();
+    initTimer();
+    initLayout();
     bindControls();
     registerHandlers();
 
     refreshCallUi();
-    updateVideoStage();
-    updateAllMediaIndicators();
+    renderSpeaker();
+    updateStage();
 
     try {
         await start();
@@ -352,25 +575,26 @@ async function boot() {
     }, HEARTBEAT_MS);
 }
 
+boot();
+
 // A small read-only surface for debugging a live call and for the browser test harness.
-// Exposes state only; it cannot drive the call.
+// It exposes state only; it cannot drive the call.
 window.__moment = {
     selfId,
     connected: isConnected,
-    // Drops the transport so the client exercises its own reconnect path. Used by the test
-    // harness to simulate a network blip without touching the media connections.
     forceReconnect: () => connection.stop().then(() => connection.start()),
     peerStates,
     stats,
+    mode: currentMode,
     callState: () => ({
         inVoice: state.isInVoice,
         videoCall: state.isVideoCall,
         muted: state.isMuted,
         cameraOn: state.isCameraOn,
         sharing: state.isScreenSharing,
+        activeSpeaker: state.activeSpeakerId,
+        speaking: [...state.speakingParticipantIds],
         voicePeers: [...state.voiceParticipantIds],
         videoPeers: [...state.videoParticipantIds],
     }),
 };
-
-boot();

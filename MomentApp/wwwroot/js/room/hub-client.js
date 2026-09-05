@@ -33,6 +33,7 @@ export const hub = {
     leaveVoice: () => invoke("LeaveVoice"),
     setVideoEnabled: (enabled) => invoke("SetVideoEnabled", enabled),
     setMuted: (muted) => invoke("SetMuted", muted),
+    setSpeaking: (speaking) => invoke("SetSpeaking", speaking),
     rejoinCall: (isVideo, isMuted) => invoke("RejoinCall", isVideo, isMuted),
     sendSignal: (toParticipantId, type, payload) =>
         invoke("SendVoiceSignal", toParticipantId, type, JSON.stringify(payload)),

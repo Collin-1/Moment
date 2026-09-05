@@ -33,6 +33,9 @@ public static class ClientAssets
         ["moment/ui/vote"] = "/js/room/ui/vote-panel.js",
         ["moment/ui/call-controls"] = "/js/room/ui/call-controls.js",
         ["moment/ui/video-stage"] = "/js/room/ui/video-stage.js",
+        ["moment/ui/call-view"] = "/js/room/ui/call-view.js",
+        ["moment/ui/layout"] = "/js/room/ui/layout.js",
+        ["moment/audio/speaking"] = "/js/room/audio/speaking-detector.js",
     };
 
     public const string RoomEntry = "/js/room/main.js";

@@ -1,85 +1,163 @@
 import { byId } from "moment/dom";
-import { state, selfName } from "moment/state";
+import { state, selfId, selfName } from "moment/state";
 
-/** participantId -> tile element */
-const remoteTiles = new Map();
-let localTile = null;
+/**
+ * Video tiles: a filmstrip of everyone in the call, plus one large tile for whoever currently
+ * holds the stage.
+ *
+ * A tile always exists for a participant in the call, camera on or not. With the camera off it
+ * shows their coloured initial rather than a black rectangle, matching the design's
+ * cameras-off frame. The `data-live` attribute on the video element is what CSS uses to decide
+ * which of the two to show, and it is driven by the track's own mute/unmute events.
+ */
 
-function makeTile(stream, label, { muted = false, badge = null } = {}) {
+/** participantId -> filmstrip tile */
+const tiles = new Map();
+
+function initial(name) {
+    return (name || "?").trim().charAt(0).toUpperCase() || "?";
+}
+
+function buildTile(participantId) {
     const tile = document.createElement("div");
-    tile.className = "video-tile";
+    tile.className = "tile";
+    tile.dataset.participantId = participantId;
 
-    const video = document.createElement("video");
-    video.autoplay = true;
-    video.playsInline = true;   // without this iOS forces the video fullscreen
-    video.muted = muted;
-    video.srcObject = stream;
-    tile.appendChild(video);
+    const name = participantId === selfId
+        ? selfName
+        : state.participantNames.get(participantId) || "Participant";
 
-    const caption = document.createElement("div");
-    caption.className = "video-label";
-    caption.textContent = label;
-    tile.appendChild(caption);
+    tile.innerHTML = `
+        <video autoplay playsinline${participantId === selfId ? " muted" : ""}></video>
+        <div class="tile-avatar"><span></span></div>
+        <div class="tile-label"></div>
+    `;
 
-    if (badge) {
-        const el = document.createElement("div");
-        el.className = "video-local-badge";
-        el.textContent = badge;
-        tile.appendChild(el);
-    }
+    tile.style.setProperty(
+        "--participant-color",
+        state.participantColors.get(participantId) || "#4492ca",
+    );
+    tile.querySelector(".tile-avatar span").textContent = initial(name);
+    tile.querySelector(".tile-label").textContent =
+        participantId === selfId ? `${name} (You)` : name;
 
+    byId("filmstrip").appendChild(tile);
+    tiles.set(participantId, tile);
     return tile;
 }
 
-export function attachRemoteVideo(participantId, stream) {
-    const existing = remoteTiles.get(participantId);
-    if (existing) {
-        existing.querySelector("video").srcObject = stream;
-        updateVideoStage();
-        return;
-    }
+export function ensureTile(participantId) {
+    return tiles.get(participantId) ?? buildTile(participantId);
+}
 
-    const tile = makeTile(stream, state.participantNames.get(participantId) || "Participant");
-    tile.dataset.participantId = participantId;
-    byId("videoGrid").appendChild(tile);
-    remoteTiles.set(participantId, tile);
-    updateVideoStage();
+/**
+ * Attaches a stream to a participant's tile and follows the track's liveness.
+ *
+ * A received video track starts muted and unmutes once frames actually arrive; driving the
+ * avatar fallback off those events means a peer with their camera off shows their initial
+ * without any signalling of our own.
+ */
+export function attachRemoteVideo(participantId, stream) {
+    const tile = ensureTile(participantId);
+    const video = tile.querySelector("video");
+    if (video.srcObject !== stream) video.srcObject = stream;
+
+    const track = stream.getVideoTracks()[0];
+    if (!track) return;
+
+    const sync = () => {
+        video.toggleAttribute("data-live", !track.muted && track.readyState === "live");
+        updateStage();
+    };
+
+    track.addEventListener("unmute", sync);
+    track.addEventListener("mute", sync);
+    track.addEventListener("ended", sync);
+    sync();
 }
 
 export function attachLocalVideo(stream) {
-    const grid = byId("videoGrid");
-    if (!grid) return;
-
-    if (localTile) {
-        localTile.querySelector("video").srcObject = stream;
-    } else {
-        // Muted, or you hear yourself with a delay.
-        localTile = makeTile(stream, selfName, { muted: true, badge: "You" });
-        grid.appendChild(localTile);
-    }
-    updateVideoStage();
+    const tile = ensureTile(selfId);
+    const video = tile.querySelector("video");
+    video.srcObject = stream;               // muted at creation, or you hear yourself delayed
+    video.toggleAttribute("data-live", Boolean(stream?.getVideoTracks().length));
+    updateStage();
 }
 
 export function removeRemoteVideo(participantId) {
-    remoteTiles.get(participantId)?.remove();
-    remoteTiles.delete(participantId);
+    tiles.get(participantId)?.remove();
+    tiles.delete(participantId);
+    updateStage();
 }
 
 export function removeLocalVideo() {
-    localTile?.remove();
-    localTile = null;
+    const tile = tiles.get(selfId);
+    if (!tile) return;
+    const video = tile.querySelector("video");
+    video.srcObject = null;
+    video.removeAttribute("data-live");
+    updateStage();
+}
+
+export function clearTiles() {
+    tiles.forEach((tile) => tile.remove());
+    tiles.clear();
+    updateStage();
 }
 
 export function hasLocalVideo() {
-    return localTile !== null;
+    return tiles.get(selfId)?.querySelector("video")?.hasAttribute("data-live") ?? false;
 }
 
-export function updateVideoStage() {
-    const stage = byId("videoStage");
+/**
+ * Promotes one participant to the large tile.
+ *
+ * Priority is screen share, then the active speaker, then whoever spoke last — a share is
+ * always the thing people need to see, and stickiness stops the stage flipping on a one-word
+ * interjection.
+ */
+export function updateStage() {
+    const stage = byId("stageTile");
     if (!stage) return;
-    const showing = state.isVideoCall
-        || state.videoParticipantIds.size > 0
-        || localTile !== null
-        || remoteTiles.size > 0;
-    stage.classList.toggle("active", showing);
+
+    const video = playing => playing;
+    const candidate = state.stageParticipantId
+        ?? state.activeSpeakerId
+        ?? [...state.videoParticipantIds][0]
+        ?? null;
+
+    if (!candidate || document.body.dataset.mode !== "video") {
+        stage.hidden = true;
+        return;
+    }
+
+    const source = tiles.get(candidate)?.querySelector("video");
+    let stageVideo = stage.querySelector("video");
+
+    if (!stageVideo) {
+        stageVideo = document.createElement("video");
+        stageVideo.autoplay = true;
+        stageVideo.playsInline = true;
+        stageVideo.muted = true;   // audio already plays through the peer audio elements
+        stage.prepend(stageVideo);
+    }
+
+    stageVideo.srcObject = source?.srcObject ?? null;
+    stageVideo.toggleAttribute("data-live", Boolean(source?.hasAttribute("data-live")));
+    stage.toggleAttribute("data-share", state.stageParticipantId === candidate && state.isScreenSharing);
+
+    const name = candidate === selfId
+        ? `${selfName} (You)`
+        : state.participantNames.get(candidate) || "Participant";
+
+    stage.style.setProperty(
+        "--participant-color",
+        state.participantColors.get(candidate) || "#4492ca",
+    );
+    byId("stageTileInitial").textContent = initial(name);
+    byId("stageTileLabel").textContent = name;
+    stage.hidden = false;
 }
+
+/** Kept for callers that only want a refresh of visibility. */
+export const updateVideoStage = updateStage;
