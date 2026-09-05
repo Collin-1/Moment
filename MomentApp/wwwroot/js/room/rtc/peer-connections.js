@@ -291,6 +291,16 @@ function attachRemoteAudio(remoteId, stream) {
     remoteAudio.set(remoteId, audio);
 }
 
+/** The inbound audio stream for a peer, used to drive their waveform. */
+export function remoteAudioStream(remoteId) {
+    return remoteAudio.get(remoteId)?.srcObject ?? null;
+}
+
+/** Peers that currently have inbound audio attached. */
+export function audioPeerIds() {
+    return [...remoteAudio.keys()];
+}
+
 export function close(remoteId) {
     const peer = peers.get(remoteId);
     if (peer) {

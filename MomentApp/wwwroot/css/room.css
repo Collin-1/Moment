@@ -1,168 +1,859 @@
-/* Room styles, extracted verbatim from Views/Room/Index.cshtml.
-   Rewritten against the Figma design in a later step; kept as-is here so the
-   extraction is a pure move with no visual change. */
+/* [hidden] must win over the layout displays declared below. Without this, setting
+   .hidden from script on a `display: grid` element does nothing at all. */
+[hidden] { display: none !important; }
 
-:root {
-    --primary: #1ed760;
-    --secondary: #4ECDC4;
-    --bg: #2d3f5f;
-    --card: #3d5578;
-    --border: #5a6f8f;
-    --text: #ffffff;
-    --text-secondary: #d1d5db;
+/* ============================================================================
+   The room: chat, voice and video.
+   Built against the Figma frames (Chat 289:203, Voice 276:154, Video 120:8 and
+   its cameras-off variant 433:232). Tokens come from moment.css.
+
+   One DOM, three layouts. The surface is switched by `data-mode` on <body>, so
+   moving between chat and a call never rebuilds the page or drops a connection.
+   ============================================================================ */
+
+body.room {
+  margin: 0;
+  font-family: var(--font-ui);
+  color: var(--app-text);
+  background: var(--app-bg);
+  /* svh keeps the control bar reachable while a mobile toolbar is expanded;
+     dvh lets the stage grow once it retracts. */
+  min-block-size: 100svh;
+  block-size: 100dvh;
+  overflow: hidden;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body { 
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-    height: 100%; 
-    overflow: hidden; 
-    background: var(--bg);
-    background-image: url('/images/pattern-bg.jpg');
-    background-size: cover;
-    background-attachment: fixed;
-}
-.chat-container { display: flex; height: 100%; background: transparent; }
-
-/* Custom Scrollbar */
-.messages-area::-webkit-scrollbar { width: 8px; }
-.messages-area::-webkit-scrollbar-track { background: var(--bg); }
-.messages-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-.messages-area::-webkit-scrollbar-thumb:hover { background: var(--secondary); }
-
-/* Sidebar */
-.sidebar { width: 320px; background: var(--card); border-right: 2px solid var(--border); display: flex; flex-direction: column; backdrop-filter: blur(10px); }
-.sidebar-header { padding: 1.5rem; border-bottom: 2px solid var(--border); }
-.room-code { font-size: 1.5rem; font-weight: 700; color: var(--primary); letter-spacing: 0.05em; }
-.room-name { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem; }
-
-.timer-section { padding: 1.5rem; border-bottom: 2px solid var(--border); text-align: center; }
-.timer-display { font-size: 2rem; font-weight: 700; color: var(--text); }
-.timer-label { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
-.timer-warning { color: #f59e0b; }
-.timer-critical { color: #ef4444; animation: pulse 1s infinite; }
-
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-
-.participants-section { flex: 1; overflow-y: auto; padding: 1rem; }
-.participants-title { font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.75rem; }
-.participant { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem; border-radius: 0.5rem; margin-bottom: 0.5rem; }
-.participant-dot { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
-.dot-online { background: #10b981; }
-.dot-away { background: #f59e0b; }
-.dot-offline { background: #ef4444; }
-.participant-color { width: 2rem; height: 2rem; border-radius: 50%; }
-.participant-name { font-weight: 500; color: var(--text); flex: 1; }
-.participant-media { display: flex; gap: 0.35rem; align-items: center; }
-.media-indicator { font-size: 0.75rem; opacity: 0.2; transition: opacity 0.2s; }
-.media-indicator.active { opacity: 1; }
-
-.vote-section { padding: 1rem; border-top: 2px solid var(--border); }
-.vote-btn { width: 100%; background: var(--primary); color: #000; font-weight: 600; padding: 0.75rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
-.vote-btn:hover { background: #1bc956; transform: translateY(-2px); }
-.leave-btn { width: 100%; background: transparent; color: #ef4444; font-weight: 600; padding: 0.75rem; border: 2px solid #ef4444; border-radius: 0.5rem; cursor: pointer; margin-top: 0.5rem; transition: all 0.3s; }
-.leave-btn:hover { background: rgba(239, 68, 68, 0.1); }
-
-.voice-section { padding: 1rem; border-top: 2px solid var(--border); }
-.voice-header { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; font-weight: 600; color: var(--text); margin-bottom: 0.5rem; }
-.voice-status { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-.voice-buttons { display: flex; flex-direction: column; gap: 0.5rem; }
-.voice-btn { width: 100%; background: var(--secondary); color: #000; font-weight: 700; padding: 0.6rem; border: none; border-radius: 0.5rem; cursor: pointer; transition: all 0.3s; }
-.voice-btn:hover { background: #55dad2; transform: translateY(-1px); }
-.voice-btn.voice-secondary { background: transparent; color: var(--text); border: 2px solid var(--border); font-weight: 600; }
-.voice-btn.voice-secondary:hover { border-color: var(--secondary); color: var(--secondary); }
-.voice-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
-
-.video-stage { background: rgba(42, 56, 80, 0.6); border-bottom: 2px solid var(--border); padding: 0.75rem 1rem; display: none; }
-.video-stage.active { display: block; }
-.video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; }
-.video-tile { position: relative; background: #111827; border-radius: 0.75rem; overflow: hidden; min-height: 120px; border: 1px solid rgba(255,255,255,0.08); }
-.video-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.video-label { position: absolute; left: 0.5rem; bottom: 0.5rem; font-size: 0.7rem; background: rgba(0,0,0,0.5); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-.video-local-badge { position: absolute; top: 0.5rem; right: 0.5rem; font-size: 0.65rem; background: rgba(25,118,210,0.75); color: #fff; padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-
-.vote-panel { background: rgba(251, 191, 36, 0.2); border: 2px solid #fbbf24; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
-.vote-panel h3 { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
-.vote-status { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.75rem; }
-.vote-buttons { display: flex; gap: 0.5rem; }
-.vote-yes, .vote-no { flex: 1; padding: 0.5rem; border: none; border-radius: 0.375rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.vote-yes { background: #10b981; color: white; }
-.vote-yes:hover { background: #059669; }
-.vote-no { background: #ef4444; color: white; }
-.vote-no:hover { background: #dc2626; }
-
-/* Main Chat Area */
-.main-chat { 
-    flex: 1; 
-    display: flex; 
-    flex-direction: column; 
-    min-height: 0; 
-    max-height: 100vh;
-    position: relative; 
-}
-.chat-header { background: var(--card); padding: 1rem 1.5rem; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; backdrop-filter: blur(10px); }
-.chat-title { font-size: 1.25rem; font-weight: 700; color: var(--text); }
-.share-btn { background: var(--primary); color: #000; padding: 0.5rem 1rem; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-.share-btn:hover { background: #1bc956; transform: translateY(-2px); }
-
-.messages-area { 
-    flex: 1; 
-    overflow-y: scroll !important; 
-    overflow-x: hidden; 
-    padding: 1.5rem; 
-    scroll-behavior: smooth; 
-    min-height: 0; 
-    max-height: calc(100vh - 200px);
-    background: rgba(45, 63, 95, 0.1);
-    backdrop-filter: blur(10px);
-}
-.message { margin-bottom: 1rem; max-width: 70%; flex-shrink: 0; }
-.message-user { margin-left: auto; }
-.message-other { margin-right: auto; }
-.message-system { text-align: center; margin: 0 auto; max-width: 100%; }
-
-.message-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
-.message-color { width: 1.25rem; height: 1.25rem; border-radius: 50%; }
-.message-name { font-weight: 600; font-size: 0.875rem; }
-.message-time { font-size: 0.75rem; color: var(--text-secondary); margin-left: auto; }
-
-.message-content { background: var(--card); padding: 0.75rem 1rem; border-radius: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.2); color: var(--text); }
-.message-user .message-content { background: var(--secondary); color: #000; font-weight: 500; }
-.message-system .message-content { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); text-align: center; font-size: 0.875rem; }
-
-.typing-indicator { padding: 0 1.5rem; color: var(--text-secondary); font-size: 0.875rem; font-style: italic; height: 1.5rem; flex-shrink: 0; }
-
-.message-input-area { background: var(--card); padding: 1rem 1.5rem; border-top: 2px solid var(--border); flex-shrink: 0; position: sticky; bottom: 0; z-index: 10; backdrop-filter: blur(10px); }
-.message-input-form { display: flex; gap: 0.75rem; align-items: center; }
-.message-input { flex: 1; padding: 0.75rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; font-size: 1rem; min-height: 2.75rem; background: var(--bg); color: var(--text); }
-.message-input:focus { outline: none; border-color: var(--primary); }
-.message-input::placeholder { color: var(--text-secondary); }
-.send-btn { background: var(--primary); color: #000; padding: 0.75rem 1.5rem; border: none; border-radius: 0.5rem; font-weight: 600; cursor: pointer; transition: all 0.3s; }
-.send-btn:hover { background: #1bc956; transform: translateY(-2px); }
-.send-btn:disabled { background: var(--border); cursor: not-allowed; }
-
-/* Notifications */
-.notification { position: fixed; top: 1rem; right: 1rem; background: var(--card); color: var(--text); padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); z-index: 1000; display: none; border: 2px solid var(--border); }
-.notification.show { display: block; animation: slideIn 0.3s; }
-@keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-
-/* Mobile Responsive */
-@@media (max-width: 768px) {
-    .sidebar { position: absolute; left: -100%; width: 80%; max-width: 320px; z-index: 100; transition: left 0.3s; }
-    .sidebar.open { left: 0; }
-    .mobile-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 99; }
-    .mobile-overlay.show { display: block; }
+.room-shell {
+  display: grid;
+  block-size: 100%;
+  grid-template-columns: 320px minmax(0, 1fr) 0;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "sidebar header footer"
+    "sidebar stage  panel"
+    "sidebar dock   panel";
+  transition: grid-template-columns 0.25s ease;
 }
 
-.reconnecting-banner { background: #fbbf24; color: #92400e; text-align: center; padding: 0.5rem; font-weight: 600; display: none; }
-.reconnecting-banner.show { display: block; }
+/* Video puts the roster and chat in a right-hand panel instead of a left rail,
+   which is what the design does and what leaves the most room for faces. */
+body[data-mode="video"] .room-shell {
+  grid-template-columns: 0 minmax(0, 1fr) 380px;
+}
 
-/* Scroll to bottom button */
-.scroll-to-bottom { position: absolute; bottom: 8rem; right: 2rem; background: var(--primary); color: #000; border: none; border-radius: 50%; width: 3rem; height: 3rem; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); display: none; font-size: 1.5rem; align-items: center; justify-content: center; z-index: 5; transition: all 0.3s; }
-.scroll-to-bottom.show { display: flex; }
-.scroll-to-bottom:hover { background: #1bc956; transform: scale(1.05); }
+/* --------------------------------------------------------------- header */
 
+.room-header {
+  grid-area: header;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 20px clamp(16px, 2vw, 40px);
+  background: var(--app-raised);
+  padding-block-start: max(20px, env(safe-area-inset-top));
+}
 
-/* A muted participant's mic indicator stays visible but reads as off, so "in the call but
-   silent" is distinguishable from "not in the call". */
-.media-indicator.muted { opacity: 0.55; filter: grayscale(1); }
+.header-pills { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 24px;
+  background: var(--app-pill);
+  border: 1px solid var(--azure);
+  color: var(--azure);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.pill.live { border-color: var(--live); color: var(--live); }
+
+.pill.live::before {
+  content: "";
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.room-identity { text-align: center; }
+
+.room-identity .name {
+  font-size: clamp(1.2rem, 2vw, 2rem);
+  font-weight: 500;
+  color: var(--app-text);
+  margin: 0;
+}
+
+.room-identity .code {
+  font-family: var(--font-display);
+  font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+  color: var(--azure);
+  letter-spacing: 0.08em;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.elapsed {
+  font-family: var(--font-ui);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--app-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(68, 146, 202, 0.4);
+  background: transparent;
+  color: var(--app-text);
+  cursor: pointer;
+}
+
+.icon-btn:hover { border-color: var(--bright); color: var(--bright); }
+.icon-btn svg { inline-size: 20px; block-size: 20px; }
+
+/* -------------------------------------------------------------- sidebar */
+
+.room-sidebar {
+  grid-area: sidebar;
+  background: var(--app-panel);
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+body[data-mode="video"] .room-sidebar { display: none; }
+
+.timer-card {
+  margin: 24px 20px 0;
+  padding: 18px 20px;
+  border-radius: 12px;
+  background: rgba(18, 40, 61, 0.75);
+  border: 1px solid rgba(68, 146, 202, 0.25);
+}
+
+.timer-card .label { font-size: 0.8rem; color: var(--azure); }
+
+.timer-card .value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--app-text);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.timer-card .of { font-size: 0.85rem; color: rgba(214, 231, 255, 0.5); }
+
+/* Escalating urgency as the room nears its end. */
+.timer-card.warning .value { color: #ffd166; }
+.timer-card.critical .value { color: var(--danger); }
+
+.roster { flex: 1; overflow-y: auto; padding: 24px 0; min-block-size: 0; }
+
+.roster-title {
+  font-size: 1.05rem;
+  font-weight: 500;
+  padding-inline: 20px;
+  margin-bottom: 12px;
+}
+
+.participant {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  transition: background-color 0.2s ease;
+}
+
+/* Whoever is speaking is lifted out of the list, matching the design's
+   highlighted row rather than relying on the waveform alone. */
+.participant.speaking { background: rgba(68, 146, 202, 0.14); }
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 38px;
+  block-size: 38px;
+  border-radius: 50%;
+  border: 1.5px solid var(--participant-color, var(--azure));
+  color: var(--participant-color, var(--azure));
+  background: rgba(12, 30, 49, 0.6);
+  font-size: 1.05rem;
+  font-weight: 500;
+  flex: none;
+}
+
+.participant-name { flex: 1; min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.participant.offline { opacity: 0.45; }
+
+.participant-state { display: flex; align-items: center; gap: 8px; flex: none; }
+.muted-icon { color: rgba(214, 231, 255, 0.45); display: none; }
+.participant.muted .muted-icon { display: inline-flex; }
+.participant.muted .wave { display: none; }
+
+/* Waveform: bars driven by a CSS custom property so a level update is one style
+   write per participant per frame, composited on the GPU. A canvas per row would
+   repaint N times a frame and visibly drop frames on a mid-range phone. */
+.wave {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  block-size: 20px;
+}
+
+.participant.in-call .wave { display: flex; }
+
+.wave i {
+  inline-size: 3px;
+  block-size: 100%;
+  border-radius: 2px;
+  background: var(--bright);
+  transform: scaleY(calc(0.28 + var(--level, 0) * 0.72));
+  transform-origin: center;
+  transition: transform 0.08s linear;
+}
+
+.vote-end {
+  margin: 0 20px 20px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--azure);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex: none;
+}
+
+.vote-end:hover { border-color: var(--bright); color: var(--bright); }
+
+/* ---------------------------------------------------------------- stage */
+
+.room-stage {
+  grid-area: stage;
+  min-block-size: 0;
+  min-inline-size: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.surface { display: none; flex: 1; min-block-size: 0; }
+body[data-mode="chat"] .surface-chat { display: flex; flex-direction: column; }
+body[data-mode="voice"] .surface-call { display: flex; flex-direction: column; }
+body[data-mode="video"] .surface-call { display: flex; flex-direction: column; }
+
+/* ----------------------------------------------------------------- chat */
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: clamp(16px, 2vw, 32px) clamp(16px, 3vw, 56px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-block-size: 0;
+}
+
+.message { max-inline-size: min(620px, 78%); }
+.message.own { align-self: flex-end; }
+
+.bubble-text {
+  padding: 14px 20px;
+  border-radius: 18px;
+  background: var(--bubble-other);
+  color: var(--app-text);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.message.own .bubble-text { background: var(--bubble-own); }
+.bubble-text a { color: var(--bright); }
+
+.message-row { display: flex; align-items: flex-end; gap: 12px; }
+.message-meta { font-size: 0.7rem; color: rgba(214, 231, 255, 0.4); margin-top: 4px; }
+.message.own .message-meta { text-align: right; }
+
+/* System notices sit centred between rules, so they read as room events rather
+   than as something a participant said. */
+.message.system {
+  align-self: center;
+  max-inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: rgba(214, 231, 255, 0.45);
+  font-size: 0.85rem;
+}
+
+.message.system::before,
+.message.system::after {
+  content: "";
+  block-size: 1px;
+  inline-size: clamp(40px, 12vw, 180px);
+  background: rgba(214, 231, 255, 0.18);
+}
+
+.typing-indicator {
+  min-block-size: 20px;
+  padding-inline: clamp(16px, 3vw, 56px);
+  font-size: 0.85rem;
+  color: rgba(214, 231, 255, 0.5);
+}
+
+.composer {
+  grid-area: dock;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 0 clamp(16px, 3vw, 56px) clamp(16px, 2vw, 32px);
+  padding-block-end: max(clamp(16px, 2vw, 32px), env(safe-area-inset-bottom));
+}
+
+body[data-mode="chat"] .composer { display: flex; }
+body:not([data-mode="chat"]) .composer { display: none; }
+
+.composer input {
+  flex: 1;
+  min-inline-size: 0;
+  padding: 18px 24px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: var(--app-raised);
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+}
+
+.composer input::placeholder { color: rgba(214, 231, 255, 0.35); }
+.composer input:focus-visible { outline: none; border-color: var(--azure); }
+
+.send-btn {
+  inline-size: 52px;
+  block-size: 52px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--app-text);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+
+.send-btn:hover { color: var(--bright); }
+.send-btn svg { inline-size: 24px; block-size: 24px; }
+
+/* ------------------------------------------------------- voice call stage */
+
+body[data-mode="video"] .speaker-stage { display: none; }
+
+.speaker-stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+  min-block-size: 0;
+  padding: 24px;
+}
+
+.speaker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Three concentric rings radiating from the active speaker. Purely decorative,
+   and gated on reduced motion further down. */
+/* Anchored to the avatar's centre, not the stage's: the speaker block is a column, so the
+   avatar sits well above the stage midpoint and stage-centred rings looked detached. */
+.speaker-rings {
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-start: clamp(48px, 7vh, 66px);
+  translate: -50% -50%;
+  inline-size: min(60vh, 60vw);
+  aspect-ratio: 1;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.speaker-rings i {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border: 1px solid rgba(0, 255, 77, 0.28);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+body[data-speaking="true"] .speaker-rings i { animation: ring 3s ease-out infinite; }
+.speaker-rings i:nth-child(2) { animation-delay: 1s; }
+.speaker-rings i:nth-child(3) { animation-delay: 2s; }
+
+@keyframes ring {
+  from { inline-size: 30%; block-size: 30%; opacity: 0.6; }
+  to   { inline-size: 100%; block-size: 100%; opacity: 0; }
+}
+
+.speaker-avatar {
+  inline-size: clamp(96px, 14vh, 132px);
+  block-size: clamp(96px, 14vh, 132px);
+  border-radius: 50%;
+  border: 2px solid var(--participant-color, var(--live));
+  color: var(--participant-color, var(--live));
+  background: rgba(12, 30, 49, 0.7);
+  display: grid;
+  place-items: center;
+  font-size: clamp(2.4rem, 5vh, 3.6rem);
+  font-weight: 400;
+}
+
+.speaker-name { font-size: clamp(1.4rem, 2.4vh, 2rem); }
+.speaker-status { font-size: 0.95rem; color: var(--azure); }
+
+.speaker .wave { display: flex; block-size: 34px; gap: 3px; }
+.speaker .wave i { inline-size: 4px; }
+
+.call-timer { text-align: center; padding-bottom: 16px; }
+.call-timer .label { font-size: 0.85rem; color: var(--azure); }
+.call-timer .value { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
+
+/* Shown when a call surface is open but nobody has joined the call yet. */
+.call-empty {
+  display: grid;
+  place-items: center;
+  gap: 16px;
+  text-align: center;
+  color: rgba(214, 231, 255, 0.6);
+  padding: 24px;
+}
+
+/* ------------------------------------------------------- video call stage */
+
+.filmstrip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 16px clamp(12px, 2vw, 24px) 0;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  flex: none;
+}
+
+.filmstrip:empty,
+body[data-mode="voice"] .filmstrip { display: none; }
+
+.tile {
+  position: relative;
+  flex: 0 0 clamp(120px, 22vw, 260px);
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--app-raised);
+  scroll-snap-align: start;
+}
+
+.stage-tile {
+  flex: 1;
+  min-block-size: 0;
+  margin: 16px clamp(12px, 2vw, 24px);
+  border-radius: 14px;
+  overflow: hidden;
+  position: relative;
+  background: var(--app-raised);
+}
+
+.tile video,
+.stage-tile video {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A shared screen must never be cropped — the edges are usually where the
+   content is. */
+.tile[data-share] video,
+.stage-tile[data-share] video { object-fit: contain; background: #000; }
+
+/* Camera-off fallback: the participant's coloured initial, as in the design's
+   cameras-off frame, rather than a black rectangle. */
+.tile-avatar {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.tile-avatar span {
+  inline-size: clamp(48px, 30%, 120px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid var(--participant-color, var(--azure));
+  color: var(--participant-color, var(--azure));
+  display: grid;
+  place-items: center;
+  font-size: clamp(1.4rem, 6vw, 3.5rem);
+}
+
+.tile:has(video[data-live]) .tile-avatar,
+.stage-tile:has(video[data-live]) .tile-avatar { display: none; }
+
+.tile-label {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  padding: 8px 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  color: var(--participant-color, var(--app-text));
+  font-size: 0.85rem;
+}
+
+.stage-tile .tile-label {
+  inset-block-end: 16px;
+  inset-inline-start: 16px;
+  inset-inline-end: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 8px 14px;
+}
+
+/* ------------------------------------------------------------ right panel */
+
+.room-panel {
+  grid-area: panel;
+  background: var(--app-raised);
+  display: none;
+  flex-direction: column;
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+body[data-mode="video"] .room-panel { display: flex; }
+
+.panel-tabs { display: flex; gap: 8px; padding: 16px; }
+
+.panel-tab {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(214, 231, 255, 0.6);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.panel-tab[aria-selected="true"] { background: rgba(26, 81, 122, 0.55); color: var(--app-text); }
+
+.panel-body { flex: 1; min-block-size: 0; display: flex; flex-direction: column; overflow: hidden; }
+.panel-pane {
+  display: none;
+  flex: 1;
+  min-block-size: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 8px 16px 16px;
+  gap: 12px;
+}
+.panel-pane.active { display: flex; }
+
+/* In video mode the message list and composer move into the panel. */
+body[data-mode="video"] .surface-chat { display: none; }
+
+/* The dividers either side of a system notice have to shrink in the panel; at 380px they
+   otherwise squeeze the label down to two words a line. */
+.panel-pane .message.system::before,
+.panel-pane .message.system::after { inline-size: clamp(12px, 6%, 40px); }
+
+.panel-pane .message { max-inline-size: 92%; }
+
+/* ------------------------------------------------------------ control bar */
+
+.control-bar {
+  grid-area: dock;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(8px, 1.5vw, 16px);
+  padding: clamp(12px, 2vh, 24px) 16px;
+  padding-block-end: max(clamp(12px, 2vh, 24px), env(safe-area-inset-bottom));
+}
+
+body[data-mode="voice"] .control-bar,
+body[data-mode="video"] .control-bar { display: flex; }
+
+.control {
+  --control-size: clamp(48px, 12vw, 56px);
+  inline-size: var(--control-size);
+  block-size: var(--control-size);
+  border-radius: 50%;
+  border: 1px solid rgba(118, 190, 250, 0.35);
+  background: rgba(30, 39, 87, 0.55);
+  color: var(--app-text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  /* Removes the 300ms tap delay and stops a double-tap zooming the page. */
+  touch-action: manipulation;
+  user-select: none;
+  flex: none;
+}
+
+.control:hover { border-color: var(--bright); }
+.control svg { inline-size: 22px; block-size: 22px; }
+
+.control[aria-pressed="true"] {
+  background: rgba(118, 190, 250, 0.9);
+  border-color: transparent;
+  color: #0c1e31;
+}
+
+/* Off states read as "this is disabled", which is the opposite of pressed. */
+.control.off {
+  background: rgba(255, 73, 73, 0.16);
+  border-color: rgba(255, 73, 73, 0.6);
+  color: #ffb3b3;
+}
+
+.control:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.control-end {
+  inline-size: auto;
+  padding-inline: clamp(18px, 4vw, 32px);
+  border-radius: 999px;
+  background: var(--danger);
+  border-color: transparent;
+  color: var(--white);
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.control-end:hover { background: #ff6060; border-color: transparent; }
+
+/* Leaving the room is a different, quieter action than ending the call — two equally loud
+   red buttons side by side is a good way to have someone hit the wrong one. */
+.control-leave {
+  background: transparent;
+  border-color: rgba(68, 146, 202, 0.5);
+  color: var(--app-text);
+}
+
+.control-leave:hover { background: rgba(68, 146, 202, 0.15); border-color: var(--bright); }
+
+/* --------------------------------------------------------------- overlays */
+
+.banner {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  padding: 10px;
+  text-align: center;
+  background: #ffd166;
+  color: #3a2c00;
+  font-size: 0.9rem;
+  z-index: 60;
+  transform: translateY(-100%);
+  transition: transform 0.2s ease;
+}
+
+.banner.show { transform: none; }
+
+.toast {
+  position: fixed;
+  inset-block-end: clamp(96px, 12vh, 140px);
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  padding: 12px 22px;
+  border-radius: 999px;
+  background: var(--app-raised);
+  border: 1px solid rgba(68, 146, 202, 0.4);
+  color: var(--app-text);
+  font-size: 0.9rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 70;
+  max-inline-size: min(90vw, 480px);
+  text-align: center;
+}
+
+.toast.show { opacity: 1; }
+
+.vote-panel {
+  margin: 0 20px 16px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(118, 190, 250, 0.4);
+  background: rgba(18, 40, 61, 0.8);
+  font-size: 0.9rem;
+}
+
+.vote-panel h3 { margin: 0 0 10px; font-size: 0.95rem; font-weight: 600; }
+.vote-progress { block-size: 4px; border-radius: 2px; background: rgba(214, 231, 255, 0.15); margin: 10px 0; }
+.vote-progress i { display: block; block-size: 100%; border-radius: 2px; background: var(--bright); }
+.vote-avatars { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.vote-avatars .avatar { inline-size: 28px; block-size: 28px; font-size: 0.8rem; }
+.vote-actions { display: flex; gap: 8px; }
+
+.vote-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(68, 146, 202, 0.5);
+  background: transparent;
+  color: var(--app-text);
+  font-family: var(--font-ui);
+  cursor: pointer;
+}
+
+.vote-actions button:hover { border-color: var(--bright); color: var(--bright); }
+
+/* ------------------------------------------------------------ responsive */
+
+@media (max-width: 900px) {
+  /* The roster and panel become a bottom sheet: the control bar already owns
+     the bottom edge, so a tab bar would compete for the most important target
+     on the screen. */
+  .room-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "header"
+      "stage"
+      "dock";
+  }
+
+  body[data-mode="video"] .room-shell { grid-template-columns: minmax(0, 1fr); }
+
+  .room-sidebar,
+  body[data-mode="video"] .room-sidebar,
+  body[data-mode="video"] .room-panel {
+    position: fixed;
+    inset-inline: 0;
+    inset-block-end: 0;
+    z-index: 50;
+    max-block-size: 85dvh;
+    border-radius: 20px 20px 0 0;
+    translate: 0 100%;
+    transition: translate 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+    /* Stops a scroll at the end of the roster chaining into the page and
+       scrolling the call away. */
+    overscroll-behavior: contain;
+    padding-block-end: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .room-sidebar[data-open],
+  body[data-mode="video"] .room-panel[data-open] { translate: 0; }
+
+  .sheet-scrim {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 12, 20, 0.55);
+    z-index: 45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  .sheet-scrim[data-open] { opacity: 1; pointer-events: auto; }
+
+  /* At phone width the three-column header collides: the room name wrapped onto two lines
+     and ran into the elapsed clock. The name truncates on one line instead, and the clock —
+     which is nice to have, not load-bearing — goes. */
+  .room-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .header-pills { flex-wrap: nowrap; }
+  .header-pills .pill.optional { display: none; }
+  .elapsed { display: none; }
+
+  .room-identity { min-inline-size: 0; }
+  .room-identity .name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 1.05rem;
+  }
+
+  .message { max-inline-size: 88%; }
+  .filmstrip .tile { flex-basis: clamp(96px, 34vw, 150px); aspect-ratio: 3 / 4; }
+
+  /* The rings are sized off the stage, which is tall and narrow on a phone; without a cap
+     they swamp the avatar they are supposed to radiate from. */
+  .speaker-rings { inline-size: min(52vw, 300px); }
+}
+
+/* Six controls plus two pill buttons do not fit across a phone: the row was clipped at both
+   ends, losing the microphone on one side and Leave room on the other. Screen share goes
+   first (it is unavailable on most mobile browsers anyway), then Leave room, which is still
+   reachable from the roster sheet. Mic, camera and End call never collapse. */
+@media (max-width: 560px) {
+  .control-bar { gap: 8px; padding-inline: 8px; }
+  .control-bar .control-leave,
+  .control-bar #shareScreenBtn { display: none; }
+  .control-end { padding-inline: 18px; font-size: 0.9rem; }
+}
+
+@media (min-width: 901px) {
+  .sheet-toggle { display: none; }
+  .sheet-scrim { display: none; }
+}
+
+/* Landscape phones: the header collapses and the control bar floats over the
+   stage, which is what the video design does at full size anyway. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .room-identity .name { display: none; }
+  .room-header { padding-block: 8px; }
+  .control-bar {
+    position: absolute;
+    inset-block-end: 8px;
+    inset-inline: 0;
+    background: linear-gradient(transparent, rgba(12, 30, 49, 0.75));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-speaking="true"] .speaker-rings i { animation: none; opacity: 0.25; inline-size: 70%; block-size: 70%; }
+  .wave i { transform: scaleY(0.5); transition: none; }
+  .room-shell,
+  .room-sidebar,
+  .room-panel,
+  .banner,
+  .toast { transition: none; }
+}
+
+/* The sidebar copy of Leave room only earns its place when the control bar has dropped it. */
+.sheet-leave { display: none; }
+@media (max-width: 560px) { .sheet-leave { display: block; } }

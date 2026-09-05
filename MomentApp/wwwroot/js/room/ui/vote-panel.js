@@ -1,48 +1,63 @@
-import { byId, escapeHtml } from "moment/dom";
+import { byId } from "moment/dom";
 import { hub } from "moment/hub";
 
-export const initiateVote = () => hub.initiateVote().catch((e) => console.error("initiateVote", e));
-export const castVote = (yes) => hub.castVote(yes).catch((e) => console.error("castVote", e));
+export const initiateVote = () =>
+    hub.initiateVote().catch((e) => console.error("initiateVote", e));
+
+export const castVote = (yes) =>
+    hub.castVote(yes).catch((e) => console.error("castVote", e));
+
+const initial = (name) => (name || "?").trim().charAt(0).toUpperCase() || "?";
 
 export function updateVotePanel(voteStatus) {
     const panel = byId("votePanel");
+    const startButton = byId("voteBtn");
+    if (!panel) return;
 
-    // A null status means no vote is running — either none was started, or one lapsed without
-    // passing. Put the panel away and offer the button again, otherwise the room is left
-    // looking like a vote is still open.
+    // A null status means no vote is running — none was started, or one lapsed without
+    // passing. Put the panel away and offer the button again, or the room is left looking
+    // like a vote is still open.
     if (!voteStatus) {
-        panel.style.display = "none";
+        panel.hidden = true;
         panel.innerHTML = "";
-        byId("voteBtn").style.display = "";
+        if (startButton) startButton.hidden = false;
         return;
     }
 
-    const percentage = Math.round(voteStatus.yesPercentage);
-    const rows = Object.entries(voteStatus.participantVotes)
-        .map(([name, vote]) => {
-            const icon = vote === true ? "&#9989;" : vote === false ? "&#10060;" : "&#9203;";
-            return `${icon} ${escapeHtml(name)}<br>`;
-        })
-        .join("");
+    const { yesVotes, totalParticipants, requiredVotes, hasPassed, participantVotes } = voteStatus;
+    const progress = requiredVotes > 0 ? Math.min(100, (yesVotes / requiredVotes) * 100) : 0;
 
     panel.innerHTML = `
-        <h3>&#128499;&#65039; Vote to Close Room</h3>
-        <div class="vote-status">
-            ${voteStatus.yesVotes} of ${voteStatus.totalParticipants} voted Yes (${percentage}%)
-            &mdash; ${voteStatus.requiredVotes} needed
-        </div>
-        <div class="vote-status">${rows}</div>
-        ${voteStatus.hasPassed
-            ? '<div class="vote-passed">&#9989; Vote Passed!</div>'
-            : `<div class="vote-buttons">
-                   <button class="vote-yes" data-vote="yes">&#9989; Yes</button>
-                   <button class="vote-no" data-vote="no">&#10060; No</button>
+        <h3>Vote to end this room</h3>
+        <div class="vote-avatars"></div>
+        <div class="vote-progress"><i></i></div>
+        <p class="vote-count"></p>
+        ${hasPassed
+            ? "<p>Vote passed. The room closes in five minutes.</p>"
+            : `<div class="vote-actions">
+                   <button type="button" data-vote="yes">Yes</button>
+                   <button type="button" data-vote="no">No</button>
                </div>`}
     `;
+
+    panel.querySelector(".vote-progress i").style.inlineSize = `${progress}%`;
+    panel.querySelector(".vote-count").textContent =
+        `${yesVotes} of ${totalParticipants} voted yes — ${requiredVotes} needed`;
+
+    // Names come from other participants, so they are set as text, never interpolated.
+    const avatars = panel.querySelector(".vote-avatars");
+    for (const [name, vote] of Object.entries(participantVotes ?? {})) {
+        const chip = document.createElement("span");
+        chip.className = "avatar";
+        chip.textContent = initial(name);
+        chip.title = `${name}: ${vote === true ? "yes" : vote === false ? "no" : "not voted"}`;
+        chip.style.opacity = vote === null || vote === undefined ? "0.4" : "1";
+        avatars.appendChild(chip);
+    }
 
     panel.querySelector('[data-vote="yes"]')?.addEventListener("click", () => castVote(true));
     panel.querySelector('[data-vote="no"]')?.addEventListener("click", () => castVote(false));
 
-    panel.style.display = "block";
-    byId("voteBtn").style.display = "none";
+    panel.hidden = false;
+    if (startButton) startButton.hidden = true;
 }

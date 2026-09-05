@@ -3,61 +3,107 @@ import { state, selfId, selfName } from "moment/state";
 import { hub } from "moment/hub";
 import { showNotification } from "moment/ui/toast";
 
+/**
+ * The message list and composer.
+ *
+ * The list is rendered into whichever mount is currently in use: the main stage in chat mode,
+ * or the right-hand panel in video mode. Messages are moved rather than duplicated, so the
+ * scroll position and the DOM stay singular.
+ */
+
 const SCROLL_SLACK_PX = 100;
 
-const nearBottom = (el) =>
-    el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_SLACK_PX;
+let messageCount = 0;
+
+/**
+ * Ids already rendered.
+ *
+ * A joiner is sent the system message announcing their own arrival twice: once live, and once
+ * inside the RoomState history, because the message is stored before the snapshot is taken.
+ * Rather than reorder the server's send, the client simply refuses to draw a message twice.
+ */
+const rendered = new Set();
+
+const nearBottom = (el) => el.scrollHeight - el.scrollTop - el.clientHeight < SCROLL_SLACK_PX;
+
+/** The element messages are currently appended to. */
+function activeList() {
+    return document.body.dataset.mode === "video"
+        ? byId("paneMessages")
+        : byId("messagesArea");
+}
 
 export function addMessage(message) {
-    const area = byId("messagesArea");
-    const wasAtBottom = nearBottom(area);
+    const list = activeList();
+    if (!list) return;
+    if (message.id) {
+        if (rendered.has(message.id)) return;
+        rendered.add(message.id);
+    }
+
+    const wasAtBottom = nearBottom(list);
     const row = document.createElement("div");
 
     if (message.type === 1) {
-        row.className = "message message-system";
-        row.innerHTML = `<div class="message-content">${escapeHtml(message.content)}</div>`;
+        // System notices read as room events, so they are centred between rules rather than
+        // styled as something a participant said.
+        row.className = "message system";
+        row.textContent = message.content;
     } else {
         const isOwn = message.senderId === selfId;
-        row.className = `message ${isOwn ? "message-user" : "message-other"}`;
+        row.className = `message ${isOwn ? "own" : ""}`.trim();
 
         // message.content is deliberately raw: the server HTML-encodes it and then turns URLs
         // into anchors, so it arrives as safe markup. Everything else is set as text or via
-        // style.setProperty rather than interpolated — a colour interpolated into a style
-        // attribute can close it and inject a handler into every other participant's page.
+        // style.setProperty — a colour interpolated into a style attribute can close it and
+        // inject a handler into every other participant's page.
         row.innerHTML = `
-            ${isOwn ? "" : `<div class="message-header">
-                <div class="message-color"></div>
-                <div class="message-name"></div>
-            </div>`}
-            <div class="message-content">${message.content}</div>
-            <div class="message-time">${formatTime(message.timestamp)}</div>
+            <div class="message-row">
+                ${isOwn ? "" : '<span class="avatar"></span>'}
+                <div class="bubble-text">${message.content}</div>
+            </div>
+            <div class="message-meta"></div>
         `;
 
         if (!isOwn) {
-            const swatch = row.querySelector(".message-color");
-            const name = row.querySelector(".message-name");
-            swatch.style.setProperty("background-color", message.senderColor);
-            name.style.setProperty("color", message.senderColor);
-            name.textContent = message.senderName;
+            const avatar = row.querySelector(".avatar");
+            avatar.textContent = (message.senderName || "?").charAt(0).toUpperCase();
+            row.style.setProperty("--participant-color", message.senderColor);
+            row.querySelector(".bubble-text").style.setProperty("color", message.senderColor);
         }
+
+        row.querySelector(".message-meta").textContent =
+            `${isOwn ? "You" : message.senderName} · ${formatTime(message.timestamp)}`;
     }
 
-    area.appendChild(row);
+    list.appendChild(row);
 
-    // Don't yank the view away from someone reading back through the history.
-    if (wasAtBottom || message.senderId === selfId) {
-        scrollToBottom();
-    }
+    messageCount += 1;
+    const counter = byId("messageCount");
+    if (counter) counter.textContent = messageCount;
+
+    // Don't yank the view away from somebody reading back through the history.
+    if (wasAtBottom || message.senderId === selfId) scrollToBottom();
+}
+
+/** Moves the rendered history when the surface changes, rather than re-rendering it. */
+export function remountMessages() {
+    const target = activeList();
+    const other = target?.id === "paneMessages" ? byId("messagesArea") : byId("paneMessages");
+    if (!target || !other) return;
+
+    while (other.firstChild) target.appendChild(other.firstChild);
+    scrollToBottom();
 }
 
 export function scrollToBottom() {
-    const area = byId("messagesArea");
-    area.scrollTop = area.scrollHeight;
+    const list = activeList();
+    if (list) list.scrollTop = list.scrollHeight;
 }
 
 export function showTyping(userName) {
     if (userName !== selfName) {
-        byId("typingIndicator").textContent = `${userName} is typing...`;
+        byId("typingIndicator").textContent = `${userName} is typing…`;
     }
 }
 
@@ -86,13 +132,6 @@ async function submit(event) {
 
 export function initChatView() {
     byId("messageForm").addEventListener("submit", submit);
-    byId("scrollToBottomBtn").addEventListener("click", scrollToBottom);
-
-    const area = byId("messagesArea");
-    const scrollBtn = byId("scrollToBottomBtn");
-    area.addEventListener("scroll", () => {
-        scrollBtn.classList.toggle("show", !nearBottom(area));
-    });
 
     let typingTimer;
     byId("messageInput").addEventListener("input", async () => {
@@ -107,3 +146,5 @@ export function initChatView() {
         }, 1000);
     });
 }
+
+export { escapeHtml };

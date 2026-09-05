@@ -15,8 +15,8 @@ export const media = {
     /** Camera track parked while a screen share is in progress. */
     _parkedCamera: null,
 
-    /** @type {MediaStream | null} */
-    _displayStream: null,
+    /** @type {MediaStream | null} The active screen-share stream. */
+    displayStream: null,
 
     supported() {
         return Boolean(navigator.mediaDevices?.getUserMedia);
@@ -92,12 +92,12 @@ export const media = {
      * without a second permission prompt.
      */
     async startScreenShare({ onEnded } = {}) {
-        this._displayStream = await navigator.mediaDevices.getDisplayMedia({
+        this.displayStream = await navigator.mediaDevices.getDisplayMedia({
             video: { frameRate: { ideal: 15, max: 30 } },
             audio: false,
         });
 
-        const track = this._displayStream.getVideoTracks()[0];
+        const track = this.displayStream.getVideoTracks()[0];
         // Tells the encoder to favour sharpness over frame rate — text has to stay readable.
         track.contentHint = "detail";
 
@@ -107,14 +107,14 @@ export const media = {
 
         this._parkedCamera = this.videoTrack();
         state.isScreenSharing = true;
-        attachLocalVideo(this._displayStream);
+        attachLocalVideo(this.displayStream);
         return track;
     },
 
     /** Ends the share and returns the camera track to restore, if there was one. */
     stopScreenShare() {
-        this._displayStream?.getTracks().forEach((t) => t.stop());
-        this._displayStream = null;
+        this.displayStream?.getTracks().forEach((t) => t.stop());
+        this.displayStream = null;
         state.isScreenSharing = false;
 
         const camera = this._parkedCamera?.readyState === "live" ? this._parkedCamera : null;
@@ -130,9 +130,9 @@ export const media = {
 
     release() {
         this.stream?.getTracks().forEach((t) => t.stop());
-        this._displayStream?.getTracks().forEach((t) => t.stop());
+        this.displayStream?.getTracks().forEach((t) => t.stop());
         this.stream = null;
-        this._displayStream = null;
+        this.displayStream = null;
         this._parkedCamera = null;
         removeLocalVideo();
         state.isMuted = false;

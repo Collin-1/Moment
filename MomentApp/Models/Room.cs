@@ -64,9 +64,17 @@ public class Room
     /// Returns a new array on every access so callers can enumerate and LINQ over it freely.
     /// Ordering by <see cref="Participant.JoinedAt"/> is deliberate: the backing dictionary
     /// has no defined order, and without this the roster would reshuffle between renders.
+    ///
+    /// Id is the tie-break because <see cref="DateTime.UtcNow"/> only advances every ~15ms on
+    /// Windows, so two people joining together get identical timestamps — and the roster would
+    /// then be ordered by whatever the dictionary happened to return, giving each participant
+    /// a different order.
     /// </remarks>
     public IReadOnlyList<Participant> Participants =>
-        _participants.Values.OrderBy(p => p.JoinedAt).ToArray();
+        _participants.Values
+            .OrderBy(p => p.JoinedAt)
+            .ThenBy(p => p.Id, StringComparer.Ordinal)
+            .ToArray();
 
     /// <summary>
     /// Snapshot of all messages, in the order they were added.

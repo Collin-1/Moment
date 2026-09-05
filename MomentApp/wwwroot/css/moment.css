@@ -25,6 +25,8 @@
   --app-panel:  #0b1b2d;
   --app-raised: #102539;
   --app-pill:   #12283d;
+  --bubble-own:   #1a517a;  /* your own messages */
+  --bubble-other: #11334f;  /* everyone else's */
   --app-text:   #daeeff;
   --live:       #00ff4d;
   --danger:     #ff4949;

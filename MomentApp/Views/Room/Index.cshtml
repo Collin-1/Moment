@@ -1,15 +1,20 @@
 @using System.Text.Json
 @using MomentApp.Configuration
+@using MomentApp.Models
 @model MomentApp.Models.ChatRoomViewModel
 @{
     ViewData["Title"] = !string.IsNullOrEmpty(Model.Room.Name) ? Model.Room.Name : $"Room {Model.Room.Id}";
-    var timeRemaining = Model.Room.ExpiresAt - DateTime.UtcNow;
     Layout = null; // Standalone document: the room has its own chrome.
+
+    var totalMinutes = (int)Math.Round((Model.Room.ExpiresAt - Model.Room.CreatedAt).TotalMinutes);
 
     var clientConfig = new
     {
         roomId = Model.Room.Id,
         roomName = Model.Room.Name,
+        roomType = Model.Room.Type.ToString(),
+        expiresAt = Model.Room.ExpiresAt,
+        totalDuration = RoomDuration.Describe(totalMinutes),
         participantId = Model.CurrentParticipant.Id,
         displayName = Model.CurrentParticipant.DisplayName,
         colorHex = Model.CurrentParticipant.ColorHex,
@@ -27,115 +32,195 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>@ViewData["Title"] - Moment</title>
+    <meta name="theme-color" content="#0c1e31" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Inter:ital,wght@0,400;0,500;0,600;1,900&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="@ClientAssets.Versioned("/css/moment.css")" />
     <link rel="stylesheet" href="@ClientAssets.Versioned("/css/room.css")" />
 
     @* Server state reaches the client as JSON rather than interpolated into script source.
        Razor HTML-encodes @@Model expressions, so a display name containing an apostrophe
-       used to land inside a JS string literal as a raw &#x27; entity. Serialising with the
-       default encoder also escapes the angle brackets, so a closing script tag inside a
-       display name is inert. *@
+       used to land inside a JS string literal as a raw entity. Serialising with the default
+       encoder also escapes the angle brackets, so a closing script tag in a name is inert. *@
     <script id="moment-config" type="application/json">@Html.Raw(JsonSerializer.Serialize(clientConfig))</script>
 
     @* Bare specifiers, each carrying the build stamp. A relative import resolves against the
-       importing module's URL and would drop any query or fingerprint, so without this the
-       entry point would be versioned while its dependencies were not. Must precede any
-       module script. *@
+       importing module's URL and would drop the query, so without this the entry point would
+       be versioned while its dependencies were not. Emitted as a raw string because .NET 9's
+       ImportMapTagHelper claims script[type=importmap] and silently replaces its content. *@
     @Html.Raw(ClientAssets.RoomImportMapScript())
 </head>
-<body>
-    <div class="reconnecting-banner" id="reconnectingBanner">
-        Reconnecting...
-    </div>
+<body class="room" data-mode="@Model.Room.Type.ToString().ToLowerInvariant()">
+    <div class="banner" id="reconnectingBanner" role="status">Reconnecting&hellip;</div>
 
-    <div class="chat-container">
-        <div class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="room-code">@Model.Room.Id</div>
-                @if (!string.IsNullOrEmpty(Model.Room.Name))
-                {
-                    <div class="room-name">@Model.Room.Name</div>
-                }
+    <div class="room-shell">
+        <!-- ------------------------------------------------------------ header -->
+        <header class="room-header">
+            <div class="header-pills">
+                <button class="icon-btn sheet-toggle" id="rosterToggle" type="button"
+                        aria-label="Show participants" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.2" />
+                        <path d="M3 19c0-3 2.7-5 6-5s6 2 6 5" /><path d="M17 14c2.4 0 4 1.6 4 4" />
+                    </svg>
+                </button>
+                @* Deliberately says "no recording" rather than the design's "screen lock
+                   active". Nothing on the web can stop a screenshot; this states only what
+                   is actually true. *@
+                <span class="pill optional">no recording</span>
+                <span class="pill live"><span id="presentCount">1</span> present</span>
             </div>
 
-            <div class="timer-section">
-                <div class="timer-display" id="timerDisplay">
-                    @if (timeRemaining.TotalHours >= 1)
-                    {
-                        <text>@((int)timeRemaining.TotalHours)h @(timeRemaining.Minutes)m</text>
-                    }
-                    else
-                    {
-                        <text>@(timeRemaining.Minutes)m @(timeRemaining.Seconds)s</text>
-                    }
-                </div>
-                <div class="timer-label">Time Remaining</div>
+            <div class="room-identity">
+                <p class="name">@(string.IsNullOrEmpty(Model.Room.Name) ? "Moment" : Model.Room.Name)</p>
+                <span class="code">@Model.Room.Id</span>
             </div>
 
-            <div class="participants-section">
-                <div class="participants-title">
-                    Participants (<span id="participantCount">@Model.Room.Participants.Count(p => !p.HasLeft)</span>)
-                </div>
+            <div class="header-actions">
+                <span class="elapsed" id="elapsed" title="Time elapsed">00:00:00</span>
+                <button class="icon-btn" id="shareBtn" type="button" aria-label="Share this room">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" />
+                        <path d="M8.2 10.8 15.8 6.6M8.2 13.2l7.6 4.2" />
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- ----------------------------------------------------------- sidebar -->
+        <aside class="room-sidebar" id="sidebar">
+            <div class="timer-card" id="timerCard">
+                <div class="label">This moment ends in:</div>
+                <div class="value" id="timerDisplay">&mdash;</div>
+                <div class="of">of @RoomDuration.Describe(totalMinutes)</div>
+            </div>
+
+            <div class="roster">
+                <p class="roster-title">Participants (<span id="participantCount">1</span>)</p>
                 @* Rendered empty: the roster is rebuilt from RoomState the moment the hub
                    connects, so server-rendering it too meant two implementations of the same
                    markup that had already drifted apart. *@
                 <div id="participantsList"></div>
             </div>
 
-            <div class="voice-section">
-                <div class="voice-header">
-                    <span>Voice Call</span>
-                    <span><span id="voiceCount">0</span>/10</span>
-                </div>
-                <div class="voice-status" id="voiceStatus">Not connected</div>
-                <div class="voice-buttons">
-                    <button class="voice-btn" id="joinVoiceBtn" type="button">Join Voice</button>
-                    <button class="voice-btn" id="joinVideoBtn" type="button">Join Video</button>
-                    <button class="voice-btn voice-secondary" id="leaveVoiceBtn" type="button" disabled>Leave Voice</button>
-                    <button class="voice-btn voice-secondary" id="muteVoiceBtn" type="button" disabled>Mute</button>
-                    <button class="voice-btn voice-secondary" id="cameraToggleBtn" type="button" disabled>Camera Off</button>
-                </div>
-            </div>
+            <div id="votePanel" hidden></div>
+            <button class="vote-end" id="voteBtn" type="button">Vote to end room</button>
+            @* Mirrors the control-bar action, which collapses on narrow screens. *@
+            <button class="vote-end sheet-leave" id="leaveRoomSheetBtn" type="button">Leave room</button>
+        </aside>
 
-            <div class="vote-section">
-                <div id="votePanel" style="display: none;"></div>
-                <button class="vote-btn" id="voteBtn" type="button">Vote to Close Room</button>
-                <button class="leave-btn" id="leaveRoomBtn" type="button">Leave Room</button>
-            </div>
+        <!-- ------------------------------------------------------------- stage -->
+        <div class="room-stage">
+            <section class="surface surface-chat">
+                <div class="messages" id="messagesArea"></div>
+                <div class="typing-indicator" id="typingIndicator"></div>
+            </section>
+
+            @* Voice and video share one surface. Voice shows the speaker stage; video adds
+               the filmstrip and the large tile. Switching mode never rebuilds the page, so a
+               call survives moving between them. *@
+            <section class="surface surface-call">
+                <div class="filmstrip" id="filmstrip"></div>
+
+                <div class="speaker-stage" id="speakerStage">
+                    <div class="speaker" id="activeSpeaker" hidden>
+                        <div class="speaker-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+                        <div class="speaker-avatar" id="speakerAvatar">&mdash;</div>
+                        <p class="speaker-name" id="speakerName">&mdash;</p>
+                        <span class="speaker-status" id="speakerStatus">speaking now</span>
+                        <div class="wave" id="speakerWave" aria-hidden="true">
+                            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+                        </div>
+                    </div>
+
+                    <div class="call-empty" id="callEmpty">
+                        <p>Nobody is in the call yet.</p>
+                        <button class="control control-end" id="startCallBtn" type="button">Join the call</button>
+                    </div>
+                </div>
+
+                <div class="stage-tile" id="stageTile" hidden>
+                    <div class="tile-avatar"><span id="stageTileInitial">&mdash;</span></div>
+                    <div class="tile-label" id="stageTileLabel">&mdash;</div>
+                </div>
+
+                <div class="call-timer">
+                    <div class="label">This moment ends in:</div>
+                    <div class="value" id="callTimerDisplay">&mdash;</div>
+                </div>
+            </section>
         </div>
 
-        <div class="main-chat">
-            <div class="chat-header">
-                <div class="chat-title">Chat</div>
-                <button class="share-btn" id="shareBtn" type="button">Share Room</button>
+        <!-- ------------------------------------------------------- right panel -->
+        <aside class="room-panel" id="roomPanel">
+            <div class="panel-tabs" role="tablist">
+                <button class="panel-tab" id="tabMessages" role="tab" aria-selected="true" aria-controls="paneMessages" type="button">
+                    Messages (<span id="messageCount">0</span>)
+                </button>
+                <button class="panel-tab" id="tabParticipants" role="tab" aria-selected="false" aria-controls="paneParticipants" type="button">
+                    Participants
+                </button>
             </div>
 
-            <div class="video-stage" id="videoStage">
-                <div class="video-grid" id="videoGrid"></div>
+            <div class="panel-body">
+                <div class="panel-pane active" id="paneMessages" role="tabpanel" aria-labelledby="tabMessages"></div>
+                <div class="panel-pane" id="paneParticipants" role="tabpanel" aria-labelledby="tabParticipants"></div>
             </div>
+        </aside>
 
-            <div class="messages-area" id="messagesArea"></div>
+        <!-- ----------------------------------------------- composer / controls -->
+        <form class="composer" id="messageForm">
+            <input type="text" id="messageInput" placeholder="Type a message" maxlength="2000" autocomplete="off" />
+            <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M2.5 21 23 12 2.5 3 2.5 10l14 2-14 2z" />
+                </svg>
+            </button>
+        </form>
 
-            <button class="scroll-to-bottom" id="scrollToBottomBtn" type="button" title="Scroll to bottom">&#8595;</button>
+        <div class="control-bar">
+            <button class="control" id="muteVoiceBtn" type="button" aria-pressed="false" aria-label="Mute microphone" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </svg>
+            </button>
 
-            <div class="typing-indicator" id="typingIndicator"></div>
+            <button class="control" id="cameraToggleBtn" type="button" aria-pressed="false" aria-label="Turn camera on" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <rect x="2.5" y="6" width="13" height="12" rx="2.5" /><path d="m15.5 12 6-3.5v7z" />
+                </svg>
+            </button>
 
-            <div class="message-input-area">
-                <form class="message-input-form" id="messageForm">
-                    <input type="text"
-                           class="message-input"
-                           id="messageInput"
-                           placeholder="Type a message..."
-                           maxlength="2000"
-                           autocomplete="off" />
-                    <button type="submit" class="send-btn" id="sendBtn">Send</button>
-                </form>
-            </div>
+            <button class="control" id="shareScreenBtn" type="button" aria-pressed="false" aria-label="Share your screen" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <rect x="2.5" y="4" width="19" height="13" rx="2.5" /><path d="M8 21h8M12 17v4M12 13V8m0 0-2.5 2.5M12 8l2.5 2.5" />
+                </svg>
+            </button>
+
+            <button class="control" id="chatToggleBtn" type="button" aria-label="Show chat">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                    <path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z" />
+                </svg>
+            </button>
+
+            <button class="control control-end" id="leaveVoiceBtn" type="button" disabled>End call</button>
+            <button class="control control-end control-leave" id="leaveRoomBtn" type="button">Leave room</button>
         </div>
     </div>
 
-    <div class="mobile-overlay" id="mobileOverlay"></div>
-    <div class="notification" id="notification"></div>
-    <div id="voiceAudioContainer" style="display: none;"></div>
+    <div class="sheet-scrim" id="sheetScrim"></div>
+    <div class="toast" id="notification" role="status" aria-live="polite"></div>
+    <div id="voiceAudioContainer" hidden></div>
+
+    @* Driven by the mode switch and "Join the call" rather than shown directly, but the call
+       module still targets them, so they stay in the DOM. *@
+    <button id="joinVoiceBtn" type="button" hidden></button>
+    <button id="joinVideoBtn" type="button" hidden></button>
+    <button id="scrollToBottomBtn" type="button" hidden></button>
+    <span id="voiceCount" hidden></span>
+    <span id="voiceStatus" hidden></span>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
     <script type="module" src="@ClientAssets.Versioned(ClientAssets.RoomEntry)"></script>
