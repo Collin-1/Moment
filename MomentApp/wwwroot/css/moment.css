@@ -388,12 +388,34 @@ a { color: inherit; }
   overflow: hidden;
 }
 
+/* Four identical groups translated by exactly one group's width (-25%), which lands the
+   strip back on an identical frame and makes the loop seamless. Two copies would only work
+   while a single copy is wider than the viewport; four holds out to very wide screens. */
 .marquee-track {
   display: flex;
+  inline-size: max-content;
+  animation: marquee-scroll 38s linear infinite;
+}
+
+.marquee-group {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: clamp(16px, 3vw, 48px);
-  flex-wrap: wrap;
+  gap: clamp(28px, 3.5vw, 64px);
+  margin: 0;
+  padding: 0 clamp(14px, 1.75vw, 32px);
+  list-style: none;
+  flex: none;
+}
+
+@keyframes marquee-scroll {
+  to { transform: translateX(-25%); }
+}
+
+/* Reading a moving line is genuinely hard; pausing on hover or keyboard focus costs nothing
+   and makes the strip legible on demand. */
+.marquee:hover .marquee-track,
+.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
 }
 
 .marquee-item {
@@ -675,6 +697,16 @@ a { color: inherit; }
 /* Continuous or entrance motion is a comfort and a battery question, not a
    decoration. Everything resolves to its final state instead. */
 @media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+    inline-size: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .marquee-group[aria-hidden="true"] { display: none; }
+  .marquee-group { flex-wrap: wrap; justify-content: center; }
+
   .js-reveal .fade-in { opacity: 1; transform: none; transition: none; }
   .button { transition: none; }
   .button:hover, .button:active { transform: none; }
@@ -721,7 +753,6 @@ a { color: inherit; }
     gap: 8px;
   }
 
-  .marquee-track { justify-content: center; }
   .nav-cta { padding: 8px 14px; }
 }
 
