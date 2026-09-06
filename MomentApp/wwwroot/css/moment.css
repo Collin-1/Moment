@@ -37,12 +37,15 @@
 
   /* Depth. The offset drop shadow is a signature of the Figma buttons. */
   --shadow-button: 8px 8px 2.15px rgba(0, 0, 0, 0.25);
+  --shadow-button-hover: 10px 10px 2.15px rgba(0, 0, 0, 0.28);
+  --shadow-button-active: 4px 4px 2.15px rgba(0, 0, 0, 0.25);
   --shadow-card:   0 18px 40px rgba(0, 38, 100, 0.08);
 
-  /* The marquee's fixed height. The hero subtracts it so the strip lands just above the
-     fold rather than just below it — it is part of the first impression, not a reward for
-     scrolling. */
-  --marquee-h: 52px;
+  /* The strip's height. The hero subtracts it so the strip lands just above the fold
+     rather than just below it — it is part of the first impression, not a reward for
+     scrolling. It grows with the window so the strip keeps its proportion of the frame
+     instead of turning into a hairline on a large display. */
+  --marquee-h: clamp(60px, 10.8vh, 108px);
 
   --radius-pill: 40px;
   --radius-card: 24px;
@@ -139,23 +142,50 @@ a { color: inherit; }
   text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
+  /* Read through a variable that :hover and :active reassign, so a context wanting a
+     smaller button — the hero, where an 8px offset would dwarf it — restyles all three
+     states by setting three values, rather than having to re-specify the :hover and
+     :active rules at a higher specificity to beat them. */
   filter: drop-shadow(var(--shadow-button));
   transition: transform 0.18s ease, filter 0.18s ease;
 }
 
-.button:hover { transform: translate(-2px, -2px); filter: drop-shadow(10px 10px 2.15px rgba(0, 0, 0, 0.28)); }
-.button:active { transform: translate(2px, 2px); filter: drop-shadow(4px 4px 2.15px rgba(0, 0, 0, 0.25)); }
+.button:hover { transform: translate(-2px, -2px); --shadow-button: var(--shadow-button-hover); }
+.button:active { transform: translate(2px, 2px); --shadow-button: var(--shadow-button-active); }
 
+/* Teal fill for the primary action, which ties the button to the disc at the centre of the
+   wordmark and gives the page a three-colour system rather than two. */
 .button.primary {
-  background: var(--white);
-  border: 3px solid var(--teal);
-  color: var(--teal);
+  background: var(--teal);
+  border: 2px solid var(--teal);
+  color: var(--white);
 }
 
 .button.secondary {
-  background: var(--navy);
-  border: 3px solid var(--white);
-  color: var(--white);
+  background: var(--white);
+  border: 2px solid var(--white);
+  color: var(--navy);
+}
+
+.button .arrow {
+  margin-inline-start: 0.6em;
+  transition: translate 0.18s ease;
+}
+
+.button:hover .arrow { translate: 4px 0; }
+
+/* On the dark app screens the contrast runs the other way: white is the strongest fill
+   there, and teal-on-navy would be the quiet option rather than the loud one. */
+body.app .button.primary {
+  background: var(--white);
+  border-color: var(--white);
+  color: var(--teal);
+}
+
+body.app .button.secondary {
+  background: transparent;
+  border-color: var(--azure);
+  color: var(--app-text);
 }
 
 /* ------------------------------------------------------------------- nav */
@@ -171,8 +201,33 @@ a { color: inherit; }
 .nav-inner {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: clamp(16px, 2.5vw, 48px);
+}
+
+.nav-links {
+  display: flex;
+  gap: clamp(14px, 1.8vw, 34px);
+  font-family: var(--font-ui);
+  font-size: clamp(0.85rem, 0.95vw, 1.05rem);
+}
+
+.nav-links a {
+  color: var(--navy);
+  text-decoration: none;
+  padding-block: 4px;
+  border-block-end: 1px solid transparent;
+}
+
+.nav-links a:hover { border-block-end-color: currentColor; }
+
+/* Pushes the tagline and CTA to the right edge without a justify-content that would also
+   spread the link group. */
+.nav-tagline {
+  margin: 0 0 0 auto;
+  font-family: var(--font-ui);
+  font-size: clamp(0.8rem, 0.9vw, 1rem);
+  color: var(--navy);
+  white-space: nowrap;
 }
 
 .brand {
@@ -180,9 +235,10 @@ a { color: inherit; }
   font-weight: 900;
   font-style: italic;
   font-size: clamp(1.4rem, 2.2vw, 2.5rem);
-  color: var(--white);
+  color: var(--navy);
   text-decoration: none;
   letter-spacing: -0.02em;
+  flex: none;
 }
 
 .nav-cta {
@@ -190,104 +246,86 @@ a { color: inherit; }
   align-items: center;
   padding: clamp(10px, 1vw, 16px) clamp(18px, 1.8vw, 32px);
   border-radius: var(--radius-pill);
-  background: var(--white);
-  border: 2px solid var(--teal);
-  color: var(--teal);
+  background: transparent;
+  border: 1.5px solid var(--navy);
+  color: var(--navy);
   font-family: var(--font-ui);
   font-size: clamp(0.85rem, 1vw, 1.25rem);
   text-decoration: none;
-  filter: drop-shadow(4px 4px 2px rgba(0, 0, 0, 0.2));
+  white-space: nowrap;
+  flex: none;
 }
 
+.nav-cta:hover { background: var(--navy); color: var(--white); }
+
+/* Navy-on-navy is invisible against the dark app shell, so the outline inverts there. */
+body.app .nav-cta { border-color: var(--white); color: var(--white); }
+body.app .nav-cta:hover { background: var(--white); color: var(--teal); }
+
 /* ------------------------------------------------------------------ hero */
+
+/* The hero and the strip below it share one photograph, so the sky runs behind both
+   rather than stopping at a seam. The flat --sky underneath is what shows while the
+   bitmap is still loading, so first paint is the right colour rather than white. */
+.skyfield {
+  position: relative;
+  background: var(--sky) url("/images/hero-sky.jpg") center / cover no-repeat;
+}
 
 .hero {
   position: relative;
   min-height: calc(100svh - var(--marquee-h));
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  overflow: hidden;
-  background: var(--sky);
-}
-
-/* The design sits the hero block low, with the wordmark centred around 51% of the frame
-   rather than 39%. Because the column is centre-justified, top padding moves the content
-   down by half its value. It is applied only where there is headroom to spend: on a short
-   window this offset is the difference between the buttons being visible and not. */
-@media (min-height: 900px) {
-  .hero { padding-block-start: clamp(0px, 16vh, 240px); }
-}
-
-/* Soft cloud field. These are heavily blurred rounded rectangles in the
-   design, not a bitmap — so they are drawn in CSS and stay crisp at any size. */
-.clouds {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
+  /* The wordmark sits high under the nav and the copy sits low above the strip, with open
+     sky between them. That gap is the composition, so the two ends are pinned and the
+     slack falls in the middle — centring the column instead pushed everything down and
+     left the top fifth of the frame empty. */
+  justify-content: space-between;
   overflow: hidden;
 }
 
-.cloud {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 50%;
-  filter: blur(40px);
-}
-
-.cloud:nth-child(1) { left: 7%;  top: 38%; width: 18%; height: 13%; }
-.cloud:nth-child(2) { left: 40%; top: 30%; width: 30%; height: 26%; filter: blur(55px); }
-.cloud:nth-child(3) { left: 61%; top: 8%;  width: 30%; height: 26%; filter: blur(50px); }
-.cloud:nth-child(4) { left: 5%;  top: 13%; width: 29%; height: 21%; filter: blur(45px); }
-.cloud:nth-child(5) { left: 9%;  top: 77%; width: 33%; height: 14%; filter: blur(45px); }
-.cloud:nth-child(6) { left: 78%; top: 58%; width: 22%; height: 19%; filter: blur(45px); }
-.cloud:nth-child(7) { left: 58%; top: 79%; width: 22%; height: 19%; filter: blur(45px); }
-
-.hero-inner {
-  position: relative;
-  z-index: 1;
-  padding-block: clamp(16px, 4vh, 80px);
-}
-
-/* The wordmark spans the full viewport in the design, not the content column — it is
-   the one element deliberately allowed to reach both edges. */
+/* The wordmark spans the full viewport, not the content column — it is the one element
+   deliberately allowed to reach both edges. */
 .wordmark-bleed {
   position: relative;
   z-index: 1;
   width: 100%;
-  padding-top: clamp(16px, 5vh, 130px);
+  /* Clears the nav and puts the cap line just under the top fifth of the frame. */
+  padding-block-start: clamp(76px, 16.3vh, 210px);
   padding-inline: 1%;
-  overflow: hidden;
 }
 
-/* The wordmark is Inter Black Italic in the design, deliberately different
-   from the Syne used everywhere else — it reads as a logotype, not a heading. */
+/* The wordmark is Inter Black Italic, deliberately different from the Syne used
+   everywhere else — it reads as a logotype, not a heading. */
 .wordmark {
   font-family: var(--font-ui);
   font-weight: 900;
   font-style: italic;
-  /* Sized so the word spans the full frame, as it does in the design: a 460px face covers
-     1904px of 1920. The circle substituting the "o" is slightly narrower than the glyph, so
-     this runs a little above the naive 24vw. */
-  /* Measured, not guessed: the rendered word is 4.017x its font-size, so 23.6vw spans the
-     frame edge to edge as the design does. The vh term is what keeps the hero on one screen:
-     a maximised browser is far wider than the 16:9 this was drawn at, and sizing off width
-     alone pushed the buttons below the fold. Whichever axis is tighter wins — at 56vh the
-     height term only binds on genuinely squashed windows, so the word stays edge to edge at
-     the ratios people actually browse at. */
-  font-size: clamp(3.5rem, min(23.6vw, 56vh), 29rem);
+  /* Measured, not guessed: the rendered word is 4.017x its font-size, so 23vw spans 92%
+     of the frame — the margin the design leaves on each side. The vh term is what keeps
+     the hero on one screen: a maximised browser is far wider than the 16:9 this was drawn
+     at, and sizing off width alone pushed the buttons below the fold. Whichever axis is
+     tighter wins. */
+  font-size: clamp(3.5rem, min(22.2vw, 42vh), 29rem);
   line-height: 0.92;
   letter-spacing: -0.03em;
-  color: var(--white);
+  /* Navy rather than white. White dissolved into the cloud field; navy makes the mark the
+     anchor of the page instead of a texture on it. */
+  color: var(--navy);
   margin: 0;
   text-align: center;
   display: flex;
   align-items: center;
   justify-content: center;
+  /* The italic "t" leans past the advance width every measurement reports, so centring on
+     the box clips it. Padding the trailing edge shifts the centred word left into the
+     spare bearing instead of shrinking the type to compensate. */
+  padding-inline-end: 0.104em;
 }
 
-/* The "o" is replaced by a dashed ring around a solid disc. Sized in em so it
-   tracks the wordmark exactly at every viewport width. */
+/* The "o" is replaced by a dashed ring around a solid disc. Sized in em so it tracks the
+   wordmark exactly at every viewport width. */
 .wordmark-o {
   position: relative;
   display: inline-flex;
@@ -300,8 +338,8 @@ a { color: inherit; }
 }
 
 /* pathLength normalises the circumference to 100, so the dash values read directly as a
-   percentage of the way round and stay correct at any size. 2.9 matches the design's 25-unit
-   dashes on a 271px circle. */
+   percentage of the way round and stay correct at any size. 2.9 matches the design's
+   25-unit dashes on a 271px circle. */
 .wordmark-ring {
   position: absolute;
   inset: 0;
@@ -312,20 +350,28 @@ a { color: inherit; }
 
 .wordmark-ring circle {
   fill: none;
-  stroke: var(--white);
+  stroke: var(--navy);
   stroke-width: 0.8;
   stroke-dasharray: 2.9 2.9;
   stroke-linecap: butt;
 }
 
+/* The accent lives at the centre of the mark, so the logo carries the same three colours
+   as the buttons rather than being white-on-white and effectively invisible. */
 .wordmark-o::after {
   content: "";
   inline-size: 0.239em;
   block-size: 0.239em;
   border-radius: 50%;
-  background: var(--white);
-  border: 0.0043em solid var(--edge);
-  box-shadow: 0.0087em 0.0087em 0.0087em rgba(0, 0, 0, 0.25);
+  background: var(--teal);
+}
+
+/* Width comes from .container on the same element; this only sets how far the foot sits
+   off the bottom of the hero. */
+.hero-inner {
+  position: relative;
+  z-index: 1;
+  padding-block-end: clamp(14px, 9vh, 115px);
 }
 
 .hero-foot {
@@ -333,79 +379,146 @@ a { color: inherit; }
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: clamp(24px, 4vw, 64px);
-  /* Deliberately tight: in the design the copy begins before the wordmark's descenders end. */
-  margin-top: clamp(8px, 1.5vh, 24px);
 }
 
-/* Keeps the third column reserved now that the bubbles have left the flow, so the buttons
-   stay optically centred rather than drifting right. */
-.hero-foot::after { content: ""; }
+.hero-copy { max-width: 46ch; }
 
-.hero-copy {
-  font-size: clamp(1rem, 1.75vw, 2.1rem);
-  line-height: 1.3;
+/* Both sizes carry a vh term as well as a vw one. On a short, wide window the copy is the
+   block that decides whether the strip clears the fold, and three lines of width-sized
+   text is exactly what pushed it under. */
+.hero-copy h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(1.5rem, min(2.4vw, 4.6vh), 2.9rem);
+  line-height: 1.05;
   color: var(--navy);
-  max-width: 26ch;
+  margin: 0 0 0.45em;
+}
+
+.hero-copy p {
+  font-family: var(--font-ui);
+  font-size: clamp(0.85rem, min(0.95vw, 1.9vh), 1.05rem);
+  line-height: 1.55;
+  color: var(--navy);
   margin: 0;
 }
 
+/* One column width for both buttons, so they read as a pair rather than as two labels of
+   different lengths. */
 .hero-actions {
   display: flex;
   flex-direction: column;
-  gap: clamp(12px, 1.6vw, 24px);
+  gap: clamp(9px, 1.8vh, 18px);
   justify-self: center;
+  inline-size: clamp(180px, 15vw, 300px);
 }
 
-/* Dashed speech-bubble outlines, bottom right of the hero. */
-.hero-bubbles {
-  position: absolute;
-  inset-inline-end: 4vw;
-  inset-block-end: clamp(20px, 5vh, 80px);
+.hero-actions .button {
+  inline-size: 100%;
+  padding: clamp(9px, 1.5vh, 17px) clamp(12px, 1.1vw, 20px);
+  font-size: clamp(0.8rem, min(1.02vw, 2vh), 1.08rem);
+  --shadow-button: 5px 5px 2.15px rgba(0, 0, 0, 0.2);
+  --shadow-button-hover: 7px 7px 2.15px rgba(0, 0, 0, 0.24);
+  --shadow-button-active: 3px 3px 2.15px rgba(0, 0, 0, 0.2);
+}
+
+.hero-actions .arrow { margin-inline-start: 1.1em; }
+
+/* Two overlapping dashed rings and a stacked line of type, bottom right. */
+.hero-motif {
+  justify-self: end;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: clamp(10px, 1.6vw, 24px);
-  pointer-events: none;
+  align-items: center;
+  gap: clamp(12px, 1.6vw, 28px);
 }
 
-.bubble {
+/* The aspect ratio follows the ring width: at 76% each, two rings overlapping by half
+   span the box exactly, and the box is as tall as one ring. */
+.motif-rings {
   position: relative;
-  inline-size: clamp(120px, 16.5vw, 320px);
-  block-size: clamp(58px, 5.5vw, 108px);
-  border: 2px dashed var(--teal);
-  opacity: 0.55;
+  display: block;
+  inline-size: clamp(120px, min(16.8vw, 32vh), 300px);
+  aspect-ratio: 100 / 76;
+  flex: none;
 }
 
-.bubble::after {
-  content: "";
+.motif-rings i {
   position: absolute;
-  inset-block-start: 100%;
-  inset-inline-start: 12%;
-  inline-size: 22%;
-  block-size: 34%;
-  border-inline-start: 2px dashed var(--teal);
-  border-block-end: 2px dashed var(--teal);
-  transform: skewX(28deg);
+  inset-block: 0;
+  inline-size: 76%;
+  aspect-ratio: 1;
+  border: 1.5px dashed var(--teal);
+  border-radius: 50%;
+  opacity: 0.85;
 }
 
-/* The pair is offset rather than stacked: the second bubble sits down and to the right, as
-   though it were a reply. */
-.bubble.alt { align-self: flex-end; margin-inline-start: clamp(20px, 3vw, 60px); }
+.motif-rings i:first-child { inset-inline-start: 0; }
+.motif-rings i:last-child { inset-inline-end: 0; }
+
+.motif-words {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: clamp(0.6rem, 0.7vw, 0.8rem);
+  line-height: 1.9;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--navy);
+  white-space: nowrap;
+}
+
+/* A short rule under the stack, as in the design. */
+.motif-words::after {
+  content: "";
+  display: block;
+  inline-size: 1.6em;
+  block-size: 1px;
+  background: currentColor;
+  margin-top: 0.8em;
+  opacity: 0.6;
+}
 
 /* --------------------------------------------------------------- marquee */
 
+/* Transparent: the sky behind it belongs to .skyfield, so the strip is the bottom of the
+   photograph rather than a band ruled off from it. */
 .marquee {
-  background: var(--white);
+  position: relative;
+  border-block-start: 1px solid rgba(0, 38, 100, 0.28);
   block-size: var(--marquee-h);
   display: flex;
   align-items: center;
   overflow: hidden;
 }
 
+/* The moving track gets its own clipping box so the fade at the right edge can be masked
+   onto the labels alone. Masking .marquee itself would fade the standing mark with them,
+   and giving the mark an opaque ground would put a flat rectangle over the photograph. */
+.marquee-viewport {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  /* --sign-w is how far the standing mark reaches in from the right edge; the labels have
+     to be fully faded by the time they reach it, so the fade ends there rather than inside
+     it. All three are variables so the phone layout, where 190px is half the strip, can
+     shorten them rather than restate the whole gradient. */
+  --fade-in: 90px;
+  --fade-out: 74px;
+  --sign-w: 108px;
+  -webkit-mask-image: linear-gradient(
+    90deg, transparent 0, #000 var(--fade-in),
+    #000 calc(100% - var(--sign-w) - var(--fade-out)), transparent calc(100% - var(--sign-w)));
+  mask-image: linear-gradient(
+    90deg, transparent 0, #000 var(--fade-in),
+    #000 calc(100% - var(--sign-w) - var(--fade-out)), transparent calc(100% - var(--sign-w)));
+}
+
 /* Four identical groups translated by exactly one group's width (-25%), which lands the
    strip back on an identical frame and makes the loop seamless. Two copies would only work
    while a single copy is wider than the viewport; four holds out to very wide screens. */
 .marquee-track {
+  position: relative;
   display: flex;
   inline-size: max-content;
   animation: marquee-scroll 38s linear infinite;
@@ -414,9 +527,8 @@ a { color: inherit; }
 .marquee-group {
   display: flex;
   align-items: center;
-  gap: clamp(28px, 3.5vw, 64px);
   margin: 0;
-  padding: 0 clamp(14px, 1.75vw, 32px);
+  padding: 0;
   list-style: none;
   flex: none;
 }
@@ -432,13 +544,17 @@ a { color: inherit; }
   animation-play-state: paused;
 }
 
+/* The spacing is padding rather than a flex gap because each item carries a divider on its
+   trailing edge, which has to sit midway between two labels rather than up against one. */
 .marquee-item {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  padding-inline: clamp(14px, 1.75vw, 32px);
   font-family: var(--font-ui);
-  font-size: clamp(0.6rem, 0.85vw, 0.95rem);
-  letter-spacing: 0.12em;
+  font-size: clamp(0.6rem, 0.72vw, 0.85rem);
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--navy);
   white-space: nowrap;
@@ -447,13 +563,42 @@ a { color: inherit; }
 /* Dashed ring with a solid core — the bullet motif from the design. */
 .marquee-item::before {
   content: "";
-  inline-size: 1.5em;
-  block-size: 1.5em;
-  border: 1px dashed var(--bright);
+  inline-size: 1.25em;
+  block-size: 1.25em;
+  border: 1px dashed var(--teal);
   border-radius: 50%;
-  background:
-    radial-gradient(circle, var(--bright) 0 32%, transparent 33%);
   flex: none;
+  opacity: 0.7;
+}
+
+.marquee-item::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block: 26%;
+  inline-size: 1px;
+  background: rgba(0, 38, 100, 0.22);
+}
+
+/* A standing mark at the right edge. The track fades out before it rather than passing
+   behind an opaque block, so the photograph shows through. */
+.marquee-sign {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block: 0;
+  z-index: 2;
+  margin: 0;
+  padding-inline: clamp(12px, 2vw, 28px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-family: var(--font-ui);
+  font-size: 0.5rem;
+  line-height: 1.5;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(0, 38, 100, 0.75);
+  white-space: nowrap;
 }
 
 /* --------------------------------------------------------------- reality */
@@ -721,6 +866,14 @@ a { color: inherit; }
   .marquee-group[aria-hidden="true"] { display: none; }
   .marquee-group { flex-wrap: wrap; justify-content: center; }
 
+  /* Nothing is moving, so there is nothing to fade out — but the standing mark has no
+     ground of its own, so the static list is kept clear of it with padding instead. */
+  .marquee-viewport {
+    -webkit-mask-image: none;
+    mask-image: none;
+    padding-inline-end: 120px;
+  }
+
   .js-reveal .fade-in { opacity: 1; transform: none; transition: none; }
   .button { transition: none; }
   .button:hover, .button:active { transform: none; }
@@ -729,6 +882,35 @@ a { color: inherit; }
 /* ---------------------------------------------------------- responsive */
 
 @media (max-width: 980px) {
+  /* The section links and the tagline do not survive a phone header: they wrapped to three
+     lines and pushed the call to action off the edge. This is a one-page site, so the
+     sections are still reachable by scrolling, and About is in the footer. */
+  .nav-links,
+  .nav-tagline { display: none; }
+
+  .nav-inner { justify-content: space-between; }
+
+  /* A phone is tall and narrow, so the wordmark is a fraction of the height it occupies on
+     a desktop and pinning the two ends apart leaves a screen's worth of empty sky between
+     them. Centring the stack is the right composition at this shape. */
+  .hero { justify-content: center; }
+  .wordmark-bleed { padding-block-start: clamp(40px, 7vh, 90px); }
+
+  /* The wordmark has almost no descender room at this size, so the gap under it has to be
+     stated rather than left to the line box. */
+  .hero-inner {
+    padding-block-start: clamp(22px, 5vh, 56px);
+    padding-block-end: clamp(12px, 4vh, 44px);
+  }
+
+  /* The strip carries two labels at this width, so it does not need a desktop's height. */
+  :root { --marquee-h: clamp(52px, 7.5vh, 72px); }
+  .marquee-viewport { --fade-in: 34px; --fade-out: 34px; --sign-w: 72px; }
+  .marquee-item { padding-inline: 18px; }
+  .marquee-sign { padding-inline: 10px; }
+
+  .hero-motif { display: none; }
+
   .hero-foot {
     grid-template-columns: 1fr;
     justify-items: center;
@@ -737,7 +919,7 @@ a { color: inherit; }
   }
 
   .hero-copy { max-width: 34ch; }
-  .hero-bubbles { display: none; }
+  .hero-actions { inline-size: min(100%, 300px); }
 
   .reality-grid,
   .features-grid {

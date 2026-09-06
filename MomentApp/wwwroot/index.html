@@ -17,6 +17,9 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="/css/moment.css" />
+    <!-- The sky is the largest paint on the page; without this it is only discovered once
+         the stylesheet has parsed. -->
+    <link rel="preload" as="image" href="/images/hero-sky.jpg" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -33,19 +36,25 @@
     <header class="nav">
       <div class="container nav-inner">
         <a class="brand" href="/">m<span aria-hidden="true">&#9679;</span>ment</a>
-        <a class="nav-cta" href="/Room/Create">Create a moment</a>
+
+        <nav class="nav-links" aria-label="Sections">
+          <a href="#how-it-works">How it works</a>
+          <a href="#who-its-for">Who it&rsquo;s for</a>
+          <a href="#features">Features</a>
+          <a href="/about.html">About</a>
+        </nav>
+
+        <p class="nav-tagline">More presence. Less permanent.</p>
+        <a class="nav-cta" href="/Room/Create">Get started</a>
       </div>
     </header>
 
     <main>
       <!-- ------------------------------------------------------------ hero -->
+      <!-- The hero and the strip below it share one sky, so the photograph is
+           continuous rather than stopping at a seam above the strip. -->
+      <div class="skyfield">
       <section class="hero">
-        <div class="clouds" aria-hidden="true">
-          <span class="cloud"></span><span class="cloud"></span><span class="cloud"></span>
-          <span class="cloud"></span><span class="cloud"></span><span class="cloud"></span>
-          <span class="cloud"></span>
-        </div>
-
         <div class="wordmark-bleed">
           <h1 class="wordmark">m<span class="wordmark-o" aria-hidden="true">
             <svg viewBox="0 0 100 100" class="wordmark-ring">
@@ -56,63 +65,74 @@
 
         <div class="container hero-inner">
           <div class="hero-foot">
-            <p class="hero-copy">
-              Secure, ephemeral messaging that disappears when you&rsquo;re done.
-              No accounts, no tracking, no permanent records.
-            </p>
-
-            <div class="hero-actions">
-              <a class="button primary" href="/Room/Create">Create a moment</a>
-              <a class="button secondary" href="/Room/Join">Join with code</a>
+            <div class="hero-copy">
+              <h2>Conversations<br />for right now.</h2>
+              <p>
+                Ephemeral messages and secure video calls designed for real life.
+                Share freely, stay in control, and let the moment be enough.
+              </p>
             </div>
 
-          </div>
-        </div>
+            <!-- Each button lands in the surface it names, rather than asking for the
+                 same decision twice. -->
+            <div class="hero-actions">
+              <a class="button primary" href="/Room/Create?type=Chat">
+                Start a chat <span class="arrow" aria-hidden="true">&#8594;</span>
+              </a>
+              <a class="button secondary" href="/Room/Create?type=Video">
+                Start a video call <span class="arrow" aria-hidden="true">&#8594;</span>
+              </a>
+            </div>
 
-        <div class="hero-bubbles" aria-hidden="true">
-          <span class="bubble"></span>
-          <span class="bubble alt"></span>
+            <div class="hero-motif">
+              <span class="motif-rings" aria-hidden="true"><i></i><i></i></span>
+              <p class="motif-words">Private<br />people<br />brighter<br />days</p>
+            </div>
+          </div>
         </div>
       </section>
 
       <!-- --------------------------------------------------------- marquee -->
       <div class="marquee">
-        <div class="marquee-track">
-        <ul class="marquee-group">
-          <li class="marquee-item">No cookies</li>
-          <li class="marquee-item">No metadata</li>
-          <li class="marquee-item">No accounts</li>
-          <li class="marquee-item">No server logs</li>
-          <li class="marquee-item">No cloud backups</li>
-          <li class="marquee-item">No recordings</li>
-        </ul>
-        <ul class="marquee-group" aria-hidden="true">
-          <li class="marquee-item">No cookies</li>
-          <li class="marquee-item">No metadata</li>
-          <li class="marquee-item">No accounts</li>
-          <li class="marquee-item">No server logs</li>
-          <li class="marquee-item">No cloud backups</li>
-          <li class="marquee-item">No recordings</li>
-        </ul>
-        <ul class="marquee-group" aria-hidden="true">
-          <li class="marquee-item">No cookies</li>
-          <li class="marquee-item">No metadata</li>
-          <li class="marquee-item">No accounts</li>
-          <li class="marquee-item">No server logs</li>
-          <li class="marquee-item">No cloud backups</li>
-          <li class="marquee-item">No recordings</li>
-        </ul>
-        <ul class="marquee-group" aria-hidden="true">
-          <li class="marquee-item">No cookies</li>
-          <li class="marquee-item">No metadata</li>
-          <li class="marquee-item">No accounts</li>
-          <li class="marquee-item">No server logs</li>
-          <li class="marquee-item">No cloud backups</li>
-          <li class="marquee-item">No recordings</li>
-        </ul>
+        <div class="marquee-viewport">
+          <div class="marquee-track">
+            <ul class="marquee-group">
+              <li class="marquee-item">Messages disappear</li>
+              <li class="marquee-item">Calls are peer to peer</li>
+              <li class="marquee-item">No accounts</li>
+              <li class="marquee-item">Nothing stored</li>
+              <li class="marquee-item">No permanent records</li>
+              <li class="marquee-item">Built for real life</li>
+            </ul>
+            <ul class="marquee-group" aria-hidden="true">
+              <li class="marquee-item">Messages disappear</li>
+              <li class="marquee-item">Calls are peer to peer</li>
+              <li class="marquee-item">No accounts</li>
+              <li class="marquee-item">Nothing stored</li>
+              <li class="marquee-item">No permanent records</li>
+              <li class="marquee-item">Built for real life</li>
+            </ul>
+            <ul class="marquee-group" aria-hidden="true">
+              <li class="marquee-item">Messages disappear</li>
+              <li class="marquee-item">Calls are peer to peer</li>
+              <li class="marquee-item">No accounts</li>
+              <li class="marquee-item">Nothing stored</li>
+              <li class="marquee-item">No permanent records</li>
+              <li class="marquee-item">Built for real life</li>
+            </ul>
+            <ul class="marquee-group" aria-hidden="true">
+              <li class="marquee-item">Messages disappear</li>
+              <li class="marquee-item">Calls are peer to peer</li>
+              <li class="marquee-item">No accounts</li>
+              <li class="marquee-item">Nothing stored</li>
+              <li class="marquee-item">No permanent records</li>
+              <li class="marquee-item">Built for real life</li>
+            </ul>
+          </div>
         </div>
+        <p class="marquee-sign" aria-hidden="true">In the<br />moment<br />always</p>
       </div>
-      </div>
+      </div><!-- /.skyfield -->
 
       <!-- --------------------------------------------------------- reality -->
       <section class="section reality">
@@ -166,7 +186,7 @@
       </section>
 
       <!-- ---------------------------------------------------- how it works -->
-      <section class="section process">
+      <section class="section process" id="how-it-works">
         <div class="container">
           <div class="process-canvas">
             <div class="process-watermark" aria-hidden="true">
@@ -260,7 +280,7 @@
       </section>
 
       <!-- ---------------------------------------------------- who it is for -->
-      <section class="section audience">
+      <section class="section audience" id="who-its-for">
         <div class="container">
           <div class="fade-in">
             <div class="kicker">Who it is for</div>
@@ -317,7 +337,7 @@
       </section>
 
       <!-- -------------------------------------------------------- features -->
-      <section class="section features">
+      <section class="section features" id="features">
         <div class="container features-grid">
           <!-- Left column: the heading, then two cards sitting lower down, which is what
                creates the scattered rhythm in the design rather than a tidy pair of stacks. -->
