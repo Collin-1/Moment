@@ -818,13 +818,18 @@ body.app .nav-cta:hover { background: var(--white); color: var(--teal); }
 
 /* ------------------------------------------------------------------- cta */
 
+/* The closing call to action returns to the sky the page opened on. The still rather than
+   the clip: a second video decoding below the fold is battery spent on something nobody is
+   watching move. It is the same file the hero already has cached, and it carries the same
+   wash, so the two skies match. */
 .cta {
-  background: var(--sky);
+  background: var(--sky) url("/images/hero-sky.jpg") center / cover no-repeat;
   text-align: center;
 }
 
+/* Navy for the same reason the wordmark is navy: on a cloud field white dissolves. */
 .cta h2 {
-  color: var(--white);
+  color: var(--navy);
   font-size: clamp(2.4rem, 6vw, 7rem);
   font-weight: 500;
   margin: clamp(24px, 5vh, 80px) 0 clamp(16px, 3vh, 40px);
