@@ -264,12 +264,49 @@ body.app .nav-cta:hover { background: var(--white); color: var(--teal); }
 
 /* ------------------------------------------------------------------ hero */
 
-/* The hero and the strip below it share one photograph, so the sky runs behind both
-   rather than stopping at a seam. The flat --sky underneath is what shows while the
-   bitmap is still loading, so first paint is the right colour rather than white. */
+/* The hero and the strip below it share one sky, so it runs behind both rather than
+   stopping at a seam. The still here is the poster for the video layered over it: it is
+   what shows before the first frame decodes, if the file fails, and under reduced motion.
+   It is the clip's own first frame with the wash below already baked in, so the handover
+   from still to video is invisible instead of a change of sky. The flat --sky under that
+   covers first paint, so the page never flashes white. */
 .skyfield {
   position: relative;
   background: var(--sky) url("/images/hero-sky.jpg") center / cover no-repeat;
+}
+
+.sky-video {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Both copies are stacked; marketing.js crossfades the opacity between them at the loop
+   seam. Only the one carrying .is-on is visible. */
+.sky-clip {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.2s linear;
+}
+
+.sky-clip.is-on { opacity: 1; }
+
+/* A wash in the brand sky. The footage is a brighter, more saturated blue than the rest of
+   the page and its clouds run to pure white, so the wash both settles it into the palette
+   and keeps the navy wordmark and the strip's small type off a moving white ground. */
+.sky-video::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    rgba(163, 213, 255, 0.36),
+    rgba(163, 213, 255, 0.18) 52%,
+    rgba(163, 213, 255, 0.42));
 }
 
 .hero {
@@ -781,13 +818,18 @@ body.app .nav-cta:hover { background: var(--white); color: var(--teal); }
 
 /* ------------------------------------------------------------------- cta */
 
+/* The closing call to action returns to the sky the page opened on. The still rather than
+   the clip: a second video decoding below the fold is battery spent on something nobody is
+   watching move. It is the same file the hero already has cached, and it carries the same
+   wash, so the two skies match. */
 .cta {
-  background: var(--sky);
+  background: var(--sky) url("/images/hero-sky.jpg") center / cover no-repeat;
   text-align: center;
 }
 
+/* Navy for the same reason the wordmark is navy: on a cloud field white dissolves. */
 .cta h2 {
-  color: var(--white);
+  color: var(--navy);
   font-size: clamp(2.4rem, 6vw, 7rem);
   font-weight: 500;
   margin: clamp(24px, 5vh, 80px) 0 clamp(16px, 3vh, 40px);
@@ -873,6 +915,11 @@ body.app .nav-cta:hover { background: var(--white); color: var(--teal); }
     mask-image: none;
     padding-inline-end: 120px;
   }
+
+  /* Drifting clouds behind the whole first screen is exactly the kind of continuous motion
+     this query exists to suppress. Hidden in CSS rather than only paused in script, so the
+     promise holds even if the script never runs. The still on .skyfield takes over. */
+  .sky-video { display: none; }
 
   .js-reveal .fade-in { opacity: 1; transform: none; transition: none; }
   .button { transition: none; }

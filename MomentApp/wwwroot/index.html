@@ -54,6 +54,21 @@
       <!-- The hero and the strip below it share one sky, so the photograph is
            continuous rather than stopping at a seam above the strip. -->
       <div class="skyfield">
+        <!-- Decorative, so it is muted, unlabelled and hidden from assistive tech. The
+             still on .skyfield underneath is the poster: it is what shows before the first
+             frame decodes, if the file fails, and whenever motion is reduced.
+
+             Two elements rather than one because the clip's last frame does not match its
+             first, so `loop` cuts visibly every pass; marketing.js crossfades between them
+             over the seam. `loop` stays on the first element so that if that script never
+             runs the sky still loops, cut and all, rather than freezing on one frame. -->
+        <div class="sky-video" aria-hidden="true">
+          <video class="sky-clip is-on" src="/video/hero-sky.mp4" autoplay muted loop
+                 playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
+          <video class="sky-clip" src="/video/hero-sky.mp4" muted
+                 playsinline preload="auto" disablepictureinpicture disableremoteplayback></video>
+        </div>
+
       <section class="hero">
         <div class="wordmark-bleed">
           <h1 class="wordmark">m<span class="wordmark-o" aria-hidden="true">
