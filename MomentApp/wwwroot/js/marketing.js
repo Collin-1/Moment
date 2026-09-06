@@ -54,3 +54,71 @@ if (!prefersReducedMotion) {
     window.addEventListener("resize", schedule, { passive: true });
     schedule();
 }
+
+/* ------------------------------------------------------------------ hero sky */
+
+const clips = [...document.querySelectorAll(".sky-clip")];
+
+if (clips.length === 2) {
+    if (prefersReducedMotion) {
+        // CSS has already hidden them; this stops the decoder as well, which is the part
+        // that costs battery.
+        clips.forEach((clip) => clip.pause());
+    } else {
+        /**
+         * The clip's last frame does not match its first — SSIM 0.82 across the seam
+         * against 0.96 between adjacent frames — so `loop` cuts visibly once every pass.
+         * Two copies of the same file, crossfaded over the last second, hide it.
+         *
+         * `loop` is set on the first element in the markup rather than here, so a failure
+         * to load this module leaves a looping sky (cut and all) instead of a single
+         * frozen frame. Taking it off is this code claiming the handover.
+         */
+        const FADE_S = 1.2;
+        let active = 0;
+        let handing = false;
+
+        clips[0].removeAttribute("loop");
+
+        function handoff() {
+            if (handing) return;
+            handing = true;
+
+            const next = clips[1 - active];
+            next.currentTime = 0;
+            next.play().catch(() => {});
+            next.classList.add("is-on");
+            clips[active].classList.remove("is-on");
+            active = 1 - active;
+
+            setTimeout(() => { handing = false; }, FADE_S * 1000);
+        }
+
+        for (const clip of clips) {
+            // timeupdate fires about four times a second, which is coarse — but it only has
+            // to start the fade, and the fade itself is a CSS transition.
+            clip.addEventListener("timeupdate", () => {
+                if (clip !== clips[active] || !clip.duration) return;
+                if (clip.currentTime >= clip.duration - FADE_S) handoff();
+            });
+
+            // Whatever has finished fading out has no reason to keep decoding.
+            clip.addEventListener("ended", () => {
+                clip.pause();
+                clip.currentTime = 0;
+            });
+        }
+
+        // A background video that has scrolled away is pure battery cost. Unlike the reveal
+        // sweep above, a missed callback here is harmless: the worst case is that the sky
+        // keeps playing off-screen, not that content stays invisible.
+        const field = document.querySelector(".skyfield");
+        if (field && "IntersectionObserver" in window) {
+            const watcher = new IntersectionObserver(([entry]) => {
+                if (entry.isIntersecting) clips[active].play().catch(() => {});
+                else clips.forEach((clip) => clip.pause());
+            });
+            watcher.observe(field);
+        }
+    }
+}
