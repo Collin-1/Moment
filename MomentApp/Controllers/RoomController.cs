@@ -30,10 +30,14 @@ public class RoomController : Controller
     /// <summary>
     /// GET: Display create room form
     /// </summary>
+    /// <param name="type">
+    /// Preselects the room type, so "Start a video call" on the landing page lands on a form
+    /// already set to Video rather than asking for the same decision a second time.
+    /// </param>
     [HttpGet]
-    public IActionResult Create()
+    public IActionResult Create(RoomType? type)
     {
-        return View(new CreateRoomViewModel());
+        return View(new CreateRoomViewModel { RoomType = type ?? RoomType.Chat });
     }
 
     /// <summary>
