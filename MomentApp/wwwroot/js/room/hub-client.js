@@ -28,15 +28,15 @@ export const hub = {
     initiateVote: () => invoke("InitiateVote"),
     castVote: (yes) => invoke("CastVote", yes),
 
-    joinVoice: () => invoke("JoinVoice"),
-    joinVideo: () => invoke("JoinVideo"),
-    leaveVoice: () => invoke("LeaveVoice"),
-    setVideoEnabled: (enabled) => invoke("SetVideoEnabled", enabled),
-    setMuted: (muted) => invoke("SetMuted", muted),
+    // One call to join, one to update, one to leave. Joining returns the roster rather than
+    // raising an event, so the list cannot arrive after a change to it.
+    joinCall: (isVideoOn, isMuted) => invoke("JoinCall", { isVideoOn, isMuted }),
+    leaveCall: () => invoke("LeaveCall"),
+    setMediaState: (isVideoOn, isMuted) => invoke("SetMediaState", { isVideoOn, isMuted }),
     setSpeaking: (speaking) => invoke("SetSpeaking", speaking),
     rejoinCall: (isVideo, isMuted) => invoke("RejoinCall", isVideo, isMuted),
     sendSignal: (toParticipantId, type, payload) =>
-        invoke("SendVoiceSignal", toParticipantId, type, JSON.stringify(payload)),
+        invoke("SendSignal", toParticipantId, type, JSON.stringify(payload)),
 };
 
 export const isConnected = () =>

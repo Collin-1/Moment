@@ -67,5 +67,24 @@ public static class ClientAssets
             imports = RoomModules.ToDictionary(m => m.Key, m => Versioned(m.Value))
         });
 
+    /// <summary>
+    /// modulepreload hints for the whole room graph.
+    /// </summary>
+    /// <remarks>
+    /// Without these the browser cannot discover a single dependency until the entry point has
+    /// been fetched and parsed, and each further level of the graph costs another round trip.
+    /// The list is derived from <see cref="RoomModules"/> rather than written out again, so a
+    /// module added there cannot be left un-preloaded.
+    ///
+    /// Deliberately not a bundler: over HTTP/2 the request count is cheap once the waterfall is
+    /// gone, and bundling would reintroduce the fingerprinting problem described above.
+    /// </remarks>
+    public static string RoomModulePreloadLinks()
+    {
+        var paths = RoomModules.Values.Append(RoomEntry);
+        return string.Concat(paths.Select(path =>
+            $"<link rel=\"modulepreload\" href=\"{Versioned(path)}\" />"));
+    }
+
     public static string Versioned(string path) => $"{path}?v={BuildId.Value}";
 }

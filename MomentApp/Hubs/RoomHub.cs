@@ -20,7 +20,17 @@ public class RoomHub : MomentHub
     private readonly IVotingService _votingService;
     private readonly MessageRateLimiter _rateLimiter;
     private readonly ILogger<RoomHub> _logger;
-    private const int MaxVoiceParticipants = 10;
+    private const int MaxCallParticipants = 10;
+
+    /// <summary>
+    /// How much history a joiner (or a reconnecting client) is sent.
+    /// </summary>
+    /// <remarks>
+    /// Rooms can last three days, and the whole transcript used to go to every arrival and
+    /// again on every reconnect. Nothing is deleted — this only bounds what crosses the wire,
+    /// and the room still holds everything until it dissolves.
+    /// </remarks>
+    private const int HistoryLimit = 200;
 
     public RoomHub(
         IRoomService roomService,
@@ -60,6 +70,7 @@ public class RoomHub : MomentHub
             participant.DisconnectedAt = null;
 
             await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+            RoomService.BindConnection(Context.ConnectionId, roomId, participant.Id);
 
             var dto = ParticipantDto.From(participant);
 
@@ -78,16 +89,10 @@ public class RoomHub : MomentHub
             await Clients.Caller.SendAsync("RoomState", new
             {
                 participants = room.Participants.Where(p => !p.HasLeft).Select(ParticipantDto.From).ToList(),
-                messages = room.Messages,
-                voteStatus = _votingService.GetVoteStatus(roomId),
-                voiceParticipants = room.Participants
-                    .Where(p => !p.HasLeft && p.IsInVoice)
-                    .Select(p => new { p.Id, p.DisplayName })
-                    .ToList(),
-                videoParticipants = room.Participants
-                    .Where(p => !p.HasLeft && p.IsInVideo)
-                    .Select(p => new { p.Id, p.DisplayName })
-                    .ToList()
+                messages = room.Messages.TakeLast(HistoryLimit).ToList(),
+                // No separate call rosters: every ParticipantDto already carries IsInVoice,
+                // IsInVideo and IsMuted, and two descriptions of one fact drift apart.
+                voteStatus = _votingService.GetVoteStatus(roomId)
             });
 
             _logger.LogInformation("Participant {ParticipantId} joined room {RoomId}", participant.Id, roomId);
@@ -126,6 +131,7 @@ public class RoomHub : MomentHub
             await Clients.Group(roomId).SendAsync("VoteUpdated", _votingService.GetVoteStatus(roomId));
 
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
+            RoomService.ReleaseConnection(Context.ConnectionId);
 
             _logger.LogInformation("Participant {ParticipantId} left room {RoomId}", participant.Id, roomId);
         }
@@ -295,87 +301,74 @@ public class RoomHub : MomentHub
     }
 
     /// <summary>
-    /// Join the room voice call
+    /// Join the room's call, returning who is already in it.
     /// </summary>
-    public Task JoinVoice(string roomId) => JoinCallAsync(roomId, withVideo: false);
-
-    /// <summary>
-    /// Join the room video call (audio + video)
-    /// </summary>
-    public Task JoinVideo(string roomId) => JoinCallAsync(roomId, withVideo: true);
-
-    private async Task JoinCallAsync(string roomId, bool withVideo)
+    /// <remarks>
+    /// The roster is the method's return value, not a follow-up event. As an event it raced
+    /// the invocation that asked for it, so a "someone joined" notice could arrive before the
+    /// list it was meant to amend — and the client had to hold both orderings in its head.
+    ///
+    /// One method covers joining with video, joining without, and turning the camera on after
+    /// the fact, because all three are the same thing: a participant declaring their media
+    /// state. Calling it while already in the call updates that state rather than rejoining.
+    /// </remarks>
+    public async Task<List<CallPeerDto>> JoinCall(string roomId, MediaStateDto state)
     {
         try
         {
             if (!TryResolveCaller(roomId, out var room, out var participant))
             {
-                await Clients.Caller.SendAsync("VoiceError", "You are not a participant in this room");
-                return;
-            }
-
-            if (participant.IsInVoice && participant.IsInVideo == withVideo)
-            {
-                return;
+                await Clients.Caller.SendAsync("CallError", "You are not a participant in this room");
+                return new List<CallPeerDto>();
             }
 
             var alreadyInCall = participant.IsInVoice;
+
             if (!alreadyInCall)
             {
-                var activeVoiceCount = room.Participants.Count(p => !p.HasLeft && p.IsInVoice);
-                if (activeVoiceCount >= MaxVoiceParticipants)
+                var activeCount = room.Participants.Count(p => !p.HasLeft && p.IsInVoice);
+                if (activeCount >= MaxCallParticipants)
                 {
-                    await Clients.Caller.SendAsync("VoiceError", $"Voice call is full (max {MaxVoiceParticipants})");
-                    return;
+                    await Clients.Caller.SendAsync("CallError", $"This call is full (max {MaxCallParticipants})");
+                    return new List<CallPeerDto>();
                 }
             }
 
             participant.IsInVoice = true;
-            participant.IsInVideo = withVideo;
+            participant.IsInVideo = state.IsVideoOn;
+            participant.IsMuted = state.IsMuted;
+            participant.DisconnectedAt = null;
 
-            await Clients.Caller.SendAsync("VoiceJoined", new
-            {
-                participants = room.Participants
-                    .Where(p => !p.HasLeft && p.IsInVoice && p.Id != participant.Id)
-                    .Select(p => new { p.Id, p.DisplayName })
-                    .ToList(),
-                videoParticipants = room.Participants
-                    .Where(p => !p.HasLeft && p.IsInVideo)
-                    .Select(p => new { p.Id, p.DisplayName })
-                    .ToList(),
-                maxParticipants = MaxVoiceParticipants,
-                isVideo = withVideo
-            });
+            var roster = BuildRoster(room, participant);
 
-            if (!alreadyInCall)
+            if (alreadyInCall)
             {
-                await Clients.OthersInGroup(roomId).SendAsync("VoiceParticipantJoined", new
-                {
-                    id = participant.Id,
-                    displayName = participant.DisplayName
-                });
+                await Clients.OthersInGroup(roomId).SendAsync("MediaStateChanged",
+                    participant.Id, new MediaStateDto(participant.IsInVideo, participant.IsMuted));
+            }
+            else
+            {
+                // ShouldOffer is false for the room: whoever joined opens the connections, so
+                // exactly one side of each new pair offers.
+                await Clients.OthersInGroup(roomId).SendAsync("CallParticipantJoined",
+                    new CallPeerDto(participant.Id, participant.DisplayName,
+                        participant.IsInVideo, participant.IsMuted, ShouldOffer: false));
             }
 
-            if (withVideo)
-            {
-                await Clients.Group(roomId).SendAsync("VideoParticipantJoined", new
-                {
-                    id = participant.Id,
-                    displayName = participant.DisplayName
-                });
-            }
+            return roster;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error joining call");
-            await Clients.Caller.SendAsync("VoiceError", "Failed to join the call");
+            await Clients.Caller.SendAsync("CallError", "Failed to join the call");
+            return new List<CallPeerDto>();
         }
     }
 
     /// <summary>
-    /// Leave the room voice call
+    /// Leave the call but stay in the room.
     /// </summary>
-    public async Task LeaveVoice(string roomId)
+    public async Task LeaveCall(string roomId)
     {
         try
         {
@@ -386,8 +379,8 @@ public class RoomHub : MomentHub
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error leaving voice");
-            await Clients.Caller.SendAsync("VoiceError", "Failed to leave voice call");
+            _logger.LogError(ex, "Error leaving call");
+            await Clients.Caller.SendAsync("CallError", "Failed to leave the call");
         }
     }
 
@@ -431,11 +424,9 @@ public class RoomHub : MomentHub
         // needs telling they are back.
         if (!wasInCall)
         {
-            await Clients.OthersInGroup(roomId).SendAsync("VoiceParticipantJoined", new
-            {
-                id = participant.Id,
-                displayName = participant.DisplayName
-            });
+            await Clients.OthersInGroup(roomId).SendAsync("CallParticipantJoined",
+                new CallPeerDto(participant.Id, participant.DisplayName,
+                    participant.IsInVideo, participant.IsMuted, ShouldOffer: false));
         }
 
         await Clients.OthersInGroup(roomId).SendAsync("MediaStateChanged",
@@ -474,24 +465,39 @@ public class RoomHub : MomentHub
     }
 
     /// <summary>
-    /// Broadcasts the caller's microphone state.
+    /// Broadcasts the caller's microphone and camera state.
     /// </summary>
-    public async Task SetMuted(string roomId, bool muted)
+    /// <remarks>
+    /// One method and one event for both flags. They used to travel separately — mute over
+    /// MediaStateChanged, the camera over a joined/left pair — so two independent booleans
+    /// could arrive out of order and leave a participant rendered as both sharing video and
+    /// not sharing it. Sending the pair makes that state unrepresentable.
+    ///
+    /// Mute is broadcast rather than inferred: a receiver can see that an incoming track is
+    /// muted, but that signal is unreliable across browsers and lags by seconds.
+    /// </remarks>
+    public async Task SetMediaState(string roomId, MediaStateDto state)
     {
-        if (!TryResolveCaller(roomId, out _, out var participant) || participant.IsMuted == muted)
+        if (!TryResolveCaller(roomId, out _, out var participant) || !participant.IsInVoice)
         {
             return;
         }
 
-        participant.IsMuted = muted;
-        await Clients.Group(roomId).SendAsync("MediaStateChanged",
-            participant.Id, new MediaStateDto(participant.IsInVideo, muted));
+        if (participant.IsInVideo == state.IsVideoOn && participant.IsMuted == state.IsMuted)
+        {
+            return;
+        }
+
+        participant.IsInVideo = state.IsVideoOn;
+        participant.IsMuted = state.IsMuted;
+
+        await Clients.Group(roomId).SendAsync("MediaStateChanged", participant.Id, state);
     }
 
     /// <summary>
-    /// Relay WebRTC signaling data between participants
+    /// Relays WebRTC signalling between two participants in the same call.
     /// </summary>
-    public async Task SendVoiceSignal(string roomId, string toParticipantId, string signalType, string signalData)
+    public async Task SendSignal(string roomId, string toParticipantId, string signalType, string signalData)
     {
         try
         {
@@ -506,7 +512,7 @@ public class RoomHub : MomentHub
                 return;
             }
 
-            await Clients.Client(target.ConnectionId).SendAsync("VoiceSignal", new
+            await Clients.Client(target.ConnectionId).SendAsync("Signal", new
             {
                 fromParticipantId = sender.Id,
                 type = signalType,
@@ -515,65 +521,23 @@ public class RoomHub : MomentHub
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error sending voice signal");
-        }
-    }
-
-    /// <summary>
-    /// Toggle video stream while staying in the call
-    /// </summary>
-    public async Task SetVideoEnabled(string roomId, bool enabled)
-    {
-        try
-        {
-            if (!TryResolveCaller(roomId, out _, out var participant))
-            {
-                return;
-            }
-
-            if (!participant.IsInVoice)
-            {
-                await Clients.Caller.SendAsync("VoiceError", "Join the call before enabling video");
-                return;
-            }
-
-            if (participant.IsInVideo == enabled)
-            {
-                return;
-            }
-
-            participant.IsInVideo = enabled;
-
-            if (enabled)
-            {
-                await Clients.Group(roomId).SendAsync("VideoParticipantJoined", new
-                {
-                    id = participant.Id,
-                    displayName = participant.DisplayName
-                });
-            }
-            else
-            {
-                await Clients.Group(roomId).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error toggling video");
-            await Clients.Caller.SendAsync("VoiceError", "Failed to toggle video");
+            _logger.LogError(ex, "Error relaying a call signal");
         }
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        foreach (var room in RoomService.GetAllRooms())
-        {
-            var participant = room.Participants.FirstOrDefault(p => p.ConnectionId == Context.ConnectionId);
-            if (participant == null || participant.HasLeft)
-            {
-                continue;
-            }
+        var resolved = RoomService.TryResolveConnection(Context.ConnectionId, out var room, out var participant);
+        RoomService.ReleaseConnection(Context.ConnectionId);
 
+        // The participant's own ConnectionId is the authority on which connection is current.
+        // A refresh opens the new connection before the old one's disconnect arrives, so
+        // acting on a superseded connection would mark somebody offline who is sitting there
+        // looking at the room.
+        if (resolved
+            && !participant.HasLeft
+            && string.Equals(participant.ConnectionId, Context.ConnectionId, StringComparison.Ordinal))
+        {
             // Call membership is deliberately NOT cleared here. SignalR reconnects routinely
             // on a network blip, and peer-to-peer media keeps flowing throughout — announcing
             // a departure now would make every peer tear down a connection that is still
@@ -605,13 +569,8 @@ public class RoomHub : MomentHub
         }
 
         participant.IsInVoice = false;
+        participant.IsInVideo = false;
 
-        if (participant.IsInVideo)
-        {
-            participant.IsInVideo = false;
-            await Clients.Group(roomId).SendAsync("VideoParticipantLeft", participant.Id, participant.DisplayName);
-        }
-
-        await Clients.Group(roomId).SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName);
+        await Clients.Group(roomId).SendAsync("CallParticipantLeft", participant.Id, participant.DisplayName);
     }
 }

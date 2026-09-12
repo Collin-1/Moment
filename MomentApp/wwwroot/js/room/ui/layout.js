@@ -2,6 +2,7 @@ import { byId } from "moment/dom";
 import { state } from "moment/state";
 import { remountMessages, scrollToBottom } from "moment/ui/chat";
 import { updateStage } from "moment/ui/video-stage";
+import { refreshCallUi } from "moment/ui/call-controls";
 
 /**
  * Surface switching, bottom sheets and the panel tabs.
@@ -27,6 +28,9 @@ export function setMode(mode) {
     remountMessages();
     updateStage();
     scrollToBottom();
+
+    // Some control labels read differently depending on the surface you are standing on.
+    refreshCallUi();
 }
 
 /* ------------------------------------------------------------------- sheets */

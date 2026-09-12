@@ -58,7 +58,18 @@ export function addParticipant(participant) {
     for (const mountId of MOUNTS) {
         const mount = byId(mountId);
         if (!mount) continue;
-        if (mount.querySelector(`[data-participant-id="${CSS.escape(participant.id)}"]`)) continue;
+
+        const existing = mount.querySelector(`[data-participant-id="${CSS.escape(participant.id)}"]`);
+        if (existing) {
+            // Somebody who refreshes arrives as UserJoined while already listed, and their
+            // old connection's disconnect has usually landed first. Skipping the row left it
+            // wearing the "offline" class that disconnect had just put there — a person
+            // sitting in the room, shown as gone.
+            existing.classList.remove("online", "away", "offline");
+            existing.classList.add(statusClass(participant.status));
+            continue;
+        }
+
         mount.appendChild(buildRow(participant));
     }
 

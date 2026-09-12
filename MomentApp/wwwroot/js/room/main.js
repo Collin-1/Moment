@@ -166,7 +166,12 @@ async function joinCall({ video }) {
         if (video) attachLocalVideo(media.stream);
 
         refreshCallUi();
-        await (video ? hub.joinVideo() : hub.joinVoice());
+
+        // The roster comes back from the invocation itself. As an event it could arrive after
+        // a "somebody joined" notice that amended it, so the client had to cope with either
+        // order; now there is only one.
+        const roster = (await hub.joinCall(video, state.isMuted)) || [];
+        applyRoster(roster, { video });
     } catch (err) {
         console.error("Call join error:", err);
         showNotification(video
@@ -176,10 +181,47 @@ async function joinCall({ video }) {
     }
 }
 
+/**
+ * Adopts a call roster: who is in it, what each of them is sending, and a connection to each.
+ *
+ * Shared by the initial join and by the reconnect path, so there is one description of what
+ * "we are now in this call with these people" means rather than two that drift.
+ */
+function applyRoster(roster, { video }) {
+    state.isInVoice = true;
+    state.isVideoCall = video;
+
+    state.voiceParticipantIds.clear();
+    state.voiceParticipantIds.add(selfId);
+    state.videoParticipantIds.clear();
+    if (video) state.videoParticipantIds.add(selfId);
+
+    for (const peer of roster) {
+        state.voiceParticipantIds.add(peer.id);
+        if (peer.displayName) state.participantNames.set(peer.id, peer.displayName);
+        applyMediaState(peer.id, { isVideoOn: peer.isVideoOn, isMuted: peer.isMuted });
+    }
+
+    refreshCallUi();
+    renderSpeaker();
+    updateAllMediaIndicators();
+    setMode(video ? "video" : "voice");
+
+    // Whoever joined opens the connections, which is what makes exactly one side of each new
+    // pair the offerer. Opening one creates its transceivers, which fires negotiationneeded
+    // and sends the offer — there is no separate "make an offer" step.
+    for (const peer of roster) {
+        connectTo(peer.id);
+        ensureTile(peer.id);
+    }
+
+    setTimeout(syncMeters, 1500);
+}
+
 async function leaveCall() {
     if (!state.isInVoice && !media.stream) return;
     try {
-        await hub.leaveVoice();
+        await hub.leaveCall();
     } catch (err) {
         console.error("Call leave error:", err);
     }
@@ -220,7 +262,7 @@ function toggleMute() {
 
     refreshCallUi();
     applyMediaState(selfId, { isMuted: muted });
-    hub.setMuted(muted).catch((err) => console.error("setMuted", err));
+    hub.setMediaState(state.isCameraOn, muted).catch((err) => console.error("setMediaState", err));
 }
 
 async function toggleCamera() {
@@ -230,13 +272,13 @@ async function toggleCamera() {
             media.stopCamera();
             await replaceVideoTrack(null);
             removeLocalVideo();
-            await hub.setVideoEnabled(false);
+            await hub.setMediaState(false, state.isMuted);
         } else {
             const track = await media.startCamera();
             state.isVideoCall = true;
             await replaceVideoTrack(track);
             attachLocalVideo(media.stream);
-            await hub.setVideoEnabled(true);
+            await hub.setMediaState(true, state.isMuted);
             if (currentMode() !== "video") setMode("video");
         }
         refreshCallUi();
@@ -260,7 +302,7 @@ async function toggleScreenShare() {
         await replaceVideoTrack(track);
         state.stageParticipantId = selfId;
         attachLocalVideo(media.displayStream);
-        await hub.setVideoEnabled(true);
+        await hub.setMediaState(true, state.isMuted);
         if (currentMode() !== "video") setMode("video");
         refreshCallUi();
         updateStage();
@@ -283,7 +325,7 @@ async function stopSharing() {
     if (camera) attachLocalVideo(media.stream);
     else removeLocalVideo();
 
-    await hub.setVideoEnabled(Boolean(camera)).catch(() => {});
+    await hub.setMediaState(Boolean(camera), state.isMuted).catch(() => {});
     refreshCallUi();
     updateStage();
 }
@@ -358,13 +400,23 @@ function registerHandlers() {
             await hub.joinRoom();
 
             if (state.isInVoice) {
-                const roster = await hub.rejoinCall(state.isCameraOn, state.isMuted);
+                const roster = (await hub.rejoinCall(state.isCameraOn, state.isMuted)) || [];
+
+                // Reconciled, not reconnected: the peers still work, and rebuilding them would
+                // drop media that survived the signalling outage. ShouldOffer decides which end
+                // repairs anything that did break.
                 await reconcilePeers(roster);
-                (roster || []).forEach((peer) => {
+
+                state.voiceParticipantIds.clear();
+                state.voiceParticipantIds.add(selfId);
+                for (const peer of roster) {
                     state.voiceParticipantIds.add(peer.id);
+                    if (peer.displayName) state.participantNames.set(peer.id, peer.displayName);
                     applyMediaState(peer.id, { isVideoOn: peer.isVideoOn, isMuted: peer.isMuted });
-                });
+                }
+
                 refreshCallUi();
+                updateAllMediaIndicators();
             }
         } catch (err) {
             console.error("Reconnect recovery failed:", err);
@@ -418,55 +470,29 @@ function registerHandlers() {
     on("VoteUpdated", updateVotePanel);
     on("VotePassed", () => showNotification("Vote passed. The room ends in five minutes."));
 
-    on("VoiceJoined", async (payload) => {
-        state.isInVoice = true;
-        state.isVideoCall = payload.isVideo === true;
+    // Two events describe call membership, not six. Who is in the call and what they are
+    // sending is one fact, so it travels as one payload — video-on and video-off as separate
+    // events is how a participant ends up rendered as both sharing and not sharing.
+    on("CallParticipantJoined", (peer) => {
+        state.voiceParticipantIds.add(peer.id);
+        if (peer.displayName) state.participantNames.set(peer.id, peer.displayName);
+        applyMediaState(peer.id, { isVideoOn: peer.isVideoOn, isMuted: peer.isMuted });
 
-        state.voiceParticipantIds.clear();
-        state.voiceParticipantIds.add(selfId);
-        (payload.participants || []).forEach((p) => state.voiceParticipantIds.add(p.id));
-
-        state.videoParticipantIds.clear();
-        if (state.isVideoCall) state.videoParticipantIds.add(selfId);
-        (payload.videoParticipants || []).forEach((p) => state.videoParticipantIds.add(p.id));
-
-        // Announce our starting mute state so late joiners are not shown as unmuted.
-        hub.setMuted(state.isMuted).catch(() => {});
-
-        refreshCallUi();
-        renderSpeaker();
-        updateAllMediaIndicators();
-        setMode(state.isVideoCall ? "video" : "voice");
-
-        // Opening the connection creates the transceivers, which fires negotiationneeded and
-        // sends the offer. There is no separate "make an offer" step.
-        for (const peer of payload.participants || []) {
-            connectTo(peer.id);
+        // Deliberately no connectTo: whoever joined opens the connections, so answering here
+        // as well would have both ends offering into each other.
+        if (state.isInVoice) {
             ensureTile(peer.id);
+            setTimeout(syncMeters, 1500);
         }
-        setTimeout(syncMeters, 1500);
-    });
 
-    on("VoiceParticipantJoined", (participant) => {
-        state.voiceParticipantIds.add(participant.id);
-        ensureTile(participant.id);
         updateVoiceUi(callStatusText());
-        updateMediaIndicators(participant.id);
         renderSpeaker();
-        setTimeout(syncMeters, 1500);
-    });
-
-    on("VideoParticipantJoined", (participant) => {
-        if (participant.displayName) {
-            state.participantNames.set(participant.id, participant.displayName);
-        }
-        state.videoParticipantIds.add(participant.id);
-        updateMediaIndicators(participant.id);
         updateStage();
     });
 
-    on("VoiceParticipantLeft", (participantId, displayName) => {
+    on("CallParticipantLeft", (participantId, displayName) => {
         state.voiceParticipantIds.delete(participantId);
+        state.videoParticipantIds.delete(participantId);
         state.mutedParticipantIds.delete(participantId);
         state.speakingParticipantIds.delete(participantId);
         if (state.activeSpeakerId === participantId) state.activeSpeakerId = null;
@@ -487,19 +513,13 @@ function registerHandlers() {
         }
     });
 
-    on("VideoParticipantLeft", (participantId) => {
-        state.videoParticipantIds.delete(participantId);
-        updateMediaIndicators(participantId);
-        updateStage();
-    });
-
-    on("VoiceSignal", async (signal) => {
+    on("Signal", async (signal) => {
         if (!state.isInVoice) return;
         await handleSignal(signal);
         syncMeters();
     });
 
-    on("VoiceError", (message) => {
+    on("CallError", (message) => {
         showNotification(message || "Call error");
         cleanupCall();
     });
@@ -508,23 +528,21 @@ function registerHandlers() {
         (roomState.messages || []).forEach(addMessage);
         scrollToBottom();
 
+        // Call membership is read off the participant list rather than from separate rosters
+        // beside it. Two descriptions of one fact drift, and the snapshot is the one place
+        // where a drifted copy would be adopted wholesale.
+        state.voiceParticipantIds.clear();
+        state.videoParticipantIds.clear();
+
         (roomState.participants || []).forEach((p) => {
             state.participantNames.set(p.id, p.displayName);
             state.participantColors.set(p.id, p.colorHex);
             if (p.isMuted) state.mutedParticipantIds.add(p.id);
             else state.mutedParticipantIds.delete(p.id);
+            if (p.isInVoice) state.voiceParticipantIds.add(p.id);
+            if (p.isInVideo) state.videoParticipantIds.add(p.id);
             addParticipant(p);
         });
-
-        if (roomState.voiceParticipants) {
-            state.voiceParticipantIds.clear();
-            roomState.voiceParticipants.forEach((p) => state.voiceParticipantIds.add(p.id));
-        }
-
-        if (roomState.videoParticipants) {
-            state.videoParticipantIds.clear();
-            roomState.videoParticipants.forEach((p) => state.videoParticipantIds.add(p.id));
-        }
 
         updateParticipantCount();
         updateVotePanel(roomState.voteStatus);
@@ -538,8 +556,11 @@ function registerHandlers() {
 /* ------------------------------------------------------------------------ wiring */
 
 function bindControls() {
-    byId("startCallBtn")?.addEventListener("click", () =>
-        joinCall({ video: currentMode() === "video" }));
+    // Four entry points, two intents. The header pair is reachable from every surface; the
+    // pair on the empty call stage is the same two choices where you are already looking.
+    // Both say which they are, rather than inferring it from the surface you happen to be on.
+    byId("startCallBtn")?.addEventListener("click", () => joinCall({ video: false }));
+    byId("startVideoCallBtn")?.addEventListener("click", () => joinCall({ video: true }));
     byId("joinVoiceBtn")?.addEventListener("click", () => joinCall({ video: false }));
     byId("joinVideoBtn")?.addEventListener("click", () => joinCall({ video: true }));
     byId("leaveVoiceBtn")?.addEventListener("click", leaveCall);
@@ -596,5 +617,6 @@ window.__moment = {
         speaking: [...state.speakingParticipantIds],
         voicePeers: [...state.voiceParticipantIds],
         videoPeers: [...state.videoParticipantIds],
+        mutedPeers: [...state.mutedParticipantIds],
     }),
 };

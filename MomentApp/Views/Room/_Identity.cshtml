@@ -1,0 +1,38 @@
+@model MomentApp.Models.ParticipantEntryViewModel
+@{
+    var availableColors = ViewBag.AvailableColors as Dictionary<string, string>
+        ?? new Dictionary<string, string>();
+}
+
+@* Shared by both ways into a room. Property names are identical on either model, so the
+   generated field names are the same whichever one renders this. *@
+<div class="field">
+    <label class="field-label" asp-for="DisplayName">Your display name</label>
+    <input class="field-input"
+           asp-for="DisplayName"
+           maxlength="20"
+           autocomplete="off"
+           placeholder="Storm" />
+    <p class="field-hint">This name exists only inside the room, and disappears with it.</p>
+    <span class="field-error" asp-validation-for="DisplayName"></span>
+</div>
+
+<fieldset class="field">
+    <legend class="field-label">Your colour</legend>
+    @* Colours already taken in the room are absent rather than shown disabled: every
+       participant needs a distinct one, and the palette is the real cap on room size. *@
+    <div class="swatch-grid">
+        @foreach (var (name, hex) in availableColors)
+        {
+            <label class="swatch" style="--swatch: @hex">
+                <input type="radio" asp-for="ColorHex" value="@hex" />
+                <span>@name</span>
+            </label>
+        }
+    </div>
+    @if (availableColors.Count == 0)
+    {
+        <p class="field-hint">This room is full &mdash; every colour is in use.</p>
+    }
+    <span class="field-error" asp-validation-for="ColorHex"></span>
+</fieldset>
