@@ -341,16 +341,41 @@ async function leaveRoom() {
     }
 }
 
-function shareRoom() {
-    const url = window.location.href;
-    if (navigator.share) {
-        navigator.share({ title: "Join my moment", text: "Join my room", url }).catch(() => {});
-    } else {
-        navigator.clipboard.writeText(url).then(
-            () => showNotification("Link copied to clipboard"),
-            () => showNotification("Could not copy the link"),
-        );
-    }
+/**
+ * The invite panel: room code, join link and QR.
+ *
+ * This used to be a page of its own between creating a room and entering it — which put it in
+ * the one place you did not need it yet, and nowhere at all once you were inside.
+ */
+function openInvite() {
+    const dialog = byId("inviteDialog");
+    if (!dialog) return;
+
+    // Fetched on first open rather than with the page: most people never open this, and the
+    // room page is no-store, so inlining it would mean re-sending it on every load.
+    const qr = byId("inviteQr");
+    if (qr && !qr.getAttribute("src") && config.qrUrl) qr.src = config.qrUrl;
+
+    // Only offered where the browser actually has a share sheet.
+    const shareBtn = byId("inviteShareBtn");
+    if (shareBtn) shareBtn.hidden = !navigator.share;
+
+    dialog.showModal();
+}
+
+function copyInviteLink() {
+    navigator.clipboard.writeText(config.shareUrl).then(
+        () => showNotification("Link copied to clipboard"),
+        () => showNotification("Could not copy the link"),
+    );
+}
+
+function shareInvite() {
+    navigator.share?.({
+        title: "Join my moment",
+        text: "Join my room on Moment",
+        url: config.shareUrl,
+    }).catch(() => {});
 }
 
 /** Records a small summary for the end-of-room screen. Never leaves the browser. */
@@ -570,7 +595,10 @@ function bindControls() {
     byId("voteBtn")?.addEventListener("click", initiateVote);
     byId("leaveRoomBtn")?.addEventListener("click", leaveRoom);
     byId("leaveRoomSheetBtn")?.addEventListener("click", leaveRoom);
-    byId("shareBtn")?.addEventListener("click", shareRoom);
+    byId("shareBtn")?.addEventListener("click", openInvite);
+    byId("inviteCopyBtn")?.addEventListener("click", copyInviteLink);
+    byId("inviteShareBtn")?.addEventListener("click", shareInvite);
+    byId("inviteCloseBtn")?.addEventListener("click", () => byId("inviteDialog")?.close());
 }
 
 async function boot() {
