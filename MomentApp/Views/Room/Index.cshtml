@@ -145,7 +145,10 @@
                the filmstrip and the large tile. Switching mode never rebuilds the page, so a
                call survives moving between them. *@
             <section class="surface surface-call">
-                <div class="filmstrip" id="filmstrip"></div>
+                @* One tile per person, all the same size — the Meet/Teams arrangement. It used
+                   to be a filmstrip of thumbnails plus a separate large tile, which meant
+                   whoever held the stage was on screen twice. *@
+                <div class="video-grid" id="videoGrid"></div>
 
                 @* A sibling of the speaker stage rather than a child of it: video mode hides
                    the stage, which used to hide the only "join the call" button with it. *@
@@ -167,11 +170,6 @@
                             <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
                         </div>
                     </div>
-                </div>
-
-                <div class="stage-tile" id="stageTile" hidden>
-                    <div class="tile-avatar"><span id="stageTileInitial">&mdash;</span></div>
-                    <div class="tile-label" id="stageTileLabel">&mdash;</div>
                 </div>
 
                 <div class="call-timer">
