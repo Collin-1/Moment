@@ -321,8 +321,15 @@ body[data-mode="video"] .surface-call { display: flex; flex-direction: column; }
   color: rgba(214, 231, 255, 0.5);
 }
 
-.composer {
+/* The composer and the control bar stack here rather than contending for one grid cell, so
+   being in a call and reading the chat are not mutually exclusive. */
+.dock {
   grid-area: dock;
+  display: flex;
+  flex-direction: column;
+}
+
+.composer {
   display: flex;
   gap: 12px;
   align-items: center;
@@ -444,15 +451,30 @@ body[data-speaking="true"] .speaker-rings i { animation: ring 3s ease-out infini
 .call-timer .label { font-size: 0.85rem; color: var(--azure); }
 .call-timer .value { font-size: 1.3rem; font-variant-numeric: tabular-nums; }
 
-/* Shown when a call surface is open but nobody has joined the call yet. */
+/* Shown when a call surface is open but nobody has joined the call yet. It sits beside the
+   speaker stage rather than inside it, so video mode — which hides that stage — still offers
+   a way in. */
 .call-empty {
+  flex: 1;
   display: grid;
   place-items: center;
+  align-content: center;
   gap: 16px;
   text-align: center;
   color: rgba(214, 231, 255, 0.6);
   padding: 24px;
 }
+
+.call-empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* While the empty state is up there is no speaker to stage, and two flex: 1 children would
+   otherwise split the surface and strand the buttons in the top half. */
+.surface-call:has(> .call-empty:not([hidden])) .speaker-stage { display: none; }
 
 /* ------------------------------------------------------- video call stage */
 
@@ -598,7 +620,6 @@ body[data-mode="video"] .surface-chat { display: none; }
 /* ------------------------------------------------------------ control bar */
 
 .control-bar {
-  grid-area: dock;
   display: none;
   align-items: center;
   justify-content: center;
@@ -607,8 +628,16 @@ body[data-mode="video"] .surface-chat { display: none; }
   padding-block-end: max(clamp(12px, 2vh, 24px), env(safe-area-inset-bottom));
 }
 
+/* Shown on the call surfaces, and on the chat surface whenever a call is actually running —
+   otherwise stepping into the chat mid-call takes mute and end-call off screen. The class is
+   set by refreshCallUi(). */
 body[data-mode="voice"] .control-bar,
-body[data-mode="video"] .control-bar { display: flex; }
+body[data-mode="video"] .control-bar,
+body.in-call .control-bar { display: flex; }
+
+/* While a call is running the control bar owns these actions, so the header pair would be a
+   second, differently styled way to do something already being done. */
+body.in-call .call-start { display: none; }
 
 .control {
   --control-size: clamp(48px, 12vw, 56px);
@@ -798,6 +827,13 @@ body[data-mode="video"] .control-bar { display: flex; }
   .header-pills { flex-wrap: nowrap; }
   .header-pills .pill.optional { display: none; }
   .elapsed { display: none; }
+
+  /* Two more buttons live here now — starting a call is a header action in every mode — so
+     the row needs the width back. Smaller targets, still comfortably over the 32px the
+     surrounding chrome uses. */
+  .header-actions { gap: 6px; }
+  .icon-btn { inline-size: 36px; block-size: 36px; }
+  .icon-btn svg { inline-size: 18px; block-size: 18px; }
 
   .room-identity { min-inline-size: 0; }
   .room-identity .name {

@@ -25,6 +25,11 @@ export const callStatusText = () =>
 export function refreshCallUi() {
     const inCall = state.isInVoice;
 
+    // Drives which of the two entry points is on screen: the header pair before a call, the
+    // control bar during one. CSS reads this rather than the mode, because being in a call
+    // and being on the call surface are different things.
+    document.body.classList.toggle("in-call", inCall);
+
     setToggle("muteVoiceBtn", {
         disabled: !inCall,
         off: inCall && state.isMuted,
@@ -49,8 +54,13 @@ export function refreshCallUi() {
 
     setToggle("leaveVoiceBtn", { disabled: !inCall });
 
-    const startCall = byId("startCallBtn");
-    if (startCall) startCall.hidden = inCall;
+    // "Show chat" while you are already in the chat was pointing at the thing you were
+    // standing on. What the button does depends on where you are.
+    const chatToggle = byId("chatToggleBtn");
+    if (chatToggle) {
+        const onChat = document.body.dataset.mode === "chat";
+        chatToggle.setAttribute("aria-label", onChat ? "Back to the call" : "Show chat");
+    }
 
     // Legacy status nodes: the hub handlers still write through these names.
     const count = byId("voiceCount");

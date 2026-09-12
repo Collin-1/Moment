@@ -63,6 +63,31 @@ public interface IRoomService
     Participant? GetParticipantByConnectionId(string roomId, string connectionId);
 
     /// <summary>
+    /// Records which room and participant a live connection belongs to.
+    /// </summary>
+    /// <remarks>
+    /// The alternative is what the disconnect handler used to do: walk every room and every
+    /// participant in it comparing connection ids. <see cref="Room.Participants"/> allocates a
+    /// freshly sorted array on each access, so that was an allocation per room per disconnect
+    /// — at its worst on a spin-down, when every client drops at once.
+    /// </remarks>
+    void BindConnection(string connectionId, string roomId, string participantId);
+
+    /// <summary>
+    /// Resolves a live connection to its room and participant, or false if it is unknown.
+    /// </summary>
+    /// <remarks>
+    /// Returns false and forgets the binding if the room or participant has since gone, so a
+    /// deleted room cannot leave a lookup pointing at nothing.
+    /// </remarks>
+    bool TryResolveConnection(string connectionId, out Room room, out Participant participant);
+
+    /// <summary>
+    /// Forgets a connection. Safe to call for one that was never bound.
+    /// </summary>
+    void ReleaseConnection(string connectionId);
+
+    /// <summary>
     /// Starts grace period for a room
     /// </summary>
     void StartGracePeriod(string roomId);

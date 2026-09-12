@@ -31,24 +31,43 @@ public class RoomController : Controller
     /// GET: Display create room form
     /// </summary>
     /// <param name="type">
-    /// Preselects the room type, so "Start a video call" on the landing page lands on a form
-    /// already set to Video rather than asking for the same decision a second time.
+    /// Which surface the new room opens into, carried from the landing page's two buttons.
+    /// Not asked for on the form: every room supports all three regardless.
     /// </param>
     [HttpGet]
     public IActionResult Create(RoomType? type)
     {
-        return View(new CreateRoomViewModel { RoomType = type ?? RoomType.Chat });
+        var colors = _colorService.GetAllColors();
+        ViewBag.AvailableColors = colors;
+
+        return View(new CreateRoomViewModel
+        {
+            RoomType = type ?? RoomType.Chat,
+            ColorHex = colors.First().Value
+        });
     }
 
     /// <summary>
-    /// POST: Create a new room
+    /// POST: Create a new room and put its creator inside it.
     /// </summary>
+    /// <remarks>
+    /// The participant is created here, not on a later page. Without it the creator arrived at
+    /// their own room with no session entry, <see cref="Index"/> read that as a stranger, and
+    /// bounced them into the join-a-stranger's-room flow — for a code they had just been given,
+    /// through a form that was a formality they still had to submit.
+    /// </remarks>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Create(CreateRoomViewModel model)
     {
+        if (!_colorService.IsKnownColor(model.ColorHex))
+        {
+            ModelState.AddModelError(nameof(model.ColorHex), "Please choose one of the available colours.");
+        }
+
         if (!ModelState.IsValid)
         {
+            ViewBag.AvailableColors = _colorService.GetAllColors();
             return View(model);
         }
 
@@ -57,7 +76,20 @@ public class RoomController : Controller
             var expiry = TimeSpan.FromMinutes(model.ExpiryMinutes);
             var room = _roomService.CreateRoom(model.Name, model.Description, expiry, model.RoomType);
 
-            _logger.LogInformation($"Room created: {room.Id}");
+            var participant = NewParticipant(model.DisplayName, model.ColorHex);
+
+            // A brand new room is empty, so neither the capacity nor the uniqueness check can
+            // fail. If it somehow does, the room exists and is still usable — send them
+            // through the join form rather than losing it.
+            if (!_roomService.AddParticipant(room.Id, participant))
+            {
+                _logger.LogWarning("Creator could not be added to new room {RoomId}", room.Id);
+                return RedirectToAction(nameof(Join), new { code = room.Id });
+            }
+
+            HttpContext.Session.SetString($"ParticipantId_{room.Id}", participant.Id);
+
+            _logger.LogInformation("Room created: {RoomId}", room.Id);
 
             return RedirectToAction(nameof(Created), new { roomCode = room.Id });
         }
@@ -65,6 +97,7 @@ public class RoomController : Controller
         {
             _logger.LogError(ex, "Error creating room");
             ModelState.AddModelError("", "An error occurred while creating the room. Please try again.");
+            ViewBag.AvailableColors = _colorService.GetAllColors();
             return View(model);
         }
     }
@@ -98,91 +131,38 @@ public class RoomController : Controller
     }
 
     /// <summary>
-    /// GET: Display join room form
+    /// GET: the one form that takes somebody from a link or a code to inside the room.
     /// </summary>
+    /// <remarks>
+    /// Code, display name and colour together. These used to be two pages: one that checked
+    /// the code and immediately redirected, and one that collected two fields. The check the
+    /// first page performed has to be repeated on the second anyway — a room can fill up
+    /// between them — so the extra round trip bought nothing.
+    /// </remarks>
     [HttpGet]
     public IActionResult Join(string? code)
     {
-        var model = new JoinRoomViewModel();
-        if (!string.IsNullOrEmpty(code))
+        var roomCode = string.IsNullOrEmpty(code) ? string.Empty : code.ToUpperInvariant();
+        var colors = ColorsFor(roomCode);
+        ViewBag.AvailableColors = colors;
+
+        return View(new JoinRoomViewModel
         {
-            model.RoomCode = code.ToUpper();
-        }
-        return View(model);
+            RoomCode = roomCode,
+            ColorHex = colors.Count > 0 ? colors.First().Value : string.Empty
+        });
     }
 
     /// <summary>
-    /// POST: Validate room code and proceed to display name selection
+    /// POST: Validate the code, create the participant and enter the room.
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public IActionResult Join(JoinRoomViewModel model)
     {
-        if (!ModelState.IsValid)
-        {
-            return View(model);
-        }
+        var roomCode = (model.RoomCode ?? string.Empty).ToUpperInvariant();
+        model.RoomCode = roomCode;
 
-        var roomCode = model.RoomCode.ToUpper();
-        var room = _roomService.GetRoom(roomCode);
-
-        if (room == null)
-        {
-            ModelState.AddModelError("RoomCode", "Room not found. Please check the code and try again.");
-            return View(model);
-        }
-
-        // Check if room is at capacity
-        var activeParticipants = room.Participants.Count(p => !p.HasLeft);
-        if (activeParticipants >= room.MaxParticipants)
-        {
-            ModelState.AddModelError("RoomCode", "This room is at maximum capacity.");
-            return View(model);
-        }
-
-        // Redirect to display name selection
-        return RedirectToAction(nameof(SelectDisplay), new { roomCode });
-    }
-
-    /// <summary>
-    /// GET: Select display name and color
-    /// </summary>
-    [HttpGet]
-    public IActionResult SelectDisplay(string roomCode)
-    {
-        var room = _roomService.GetRoom(roomCode);
-        if (room == null)
-        {
-            return NotFound();
-        }
-
-        // Get used colors
-        var usedColors = room.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
-        var availableColors = _colorService.GetAvailableColors(usedColors);
-
-        // Suggest a random color
-        var suggestedColor = availableColors.Any()
-            ? availableColors.First().Value
-            : _colorService.GetAllColors().First().Value;
-
-        var model = new SelectDisplayViewModel
-        {
-            RoomCode = roomCode,
-            ColorHex = suggestedColor
-        };
-
-        ViewBag.AvailableColors = availableColors;
-
-        return View(model);
-    }
-
-    /// <summary>
-    /// POST: Create participant and enter room
-    /// </summary>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    public IActionResult SelectDisplay(SelectDisplayViewModel model)
-    {
         // The chosen colour is rendered into every other participant's page, including into
         // style attributes. Accepting an arbitrary string here would be a stored-XSS vector,
         // so it is checked against the fixed palette rather than trusted or pattern-matched.
@@ -193,40 +173,37 @@ public class RoomController : Controller
 
         if (!ModelState.IsValid)
         {
-            RepopulateColors(model.RoomCode);
-            return View(model);
+            return JoinAgain(model);
         }
 
-        var room = _roomService.GetRoom(model.RoomCode);
+        var room = _roomService.GetRoom(roomCode);
         if (room == null)
         {
-            return NotFound();
+            ModelState.AddModelError(nameof(model.RoomCode), "Room not found. Please check the code and try again.");
+            return JoinAgain(model);
         }
 
-        // Create participant
-        var participant = new Participant
+        if (room.Participants.Count(p => !p.HasLeft) >= room.MaxParticipants)
         {
-            DisplayName = model.DisplayName,
-            ColorHex = model.ColorHex,
-            JoinedAt = DateTime.UtcNow,
-            LastActivity = DateTime.UtcNow,
-            Status = ParticipantStatus.Online
-        };
-
-        if (!_roomService.AddParticipant(model.RoomCode, participant))
-        {
-            ModelState.AddModelError("", "Failed to join room. Display name or colour may already be in use.");
-            RepopulateColors(model.RoomCode);
-            return View(model);
+            ModelState.AddModelError(nameof(model.RoomCode), "This room is at maximum capacity.");
+            return JoinAgain(model);
         }
 
-        // Store participant ID in session
-        HttpContext.Session.SetString($"ParticipantId_{model.RoomCode}", participant.Id);
+        var participant = NewParticipant(model.DisplayName, model.ColorHex);
 
-        _logger.LogInformation($"Participant {participant.DisplayName} joined room {model.RoomCode}");
+        // AddParticipant re-checks capacity and uniqueness under the room's lock, so this is
+        // the decision that counts; the checks above only produce a better message.
+        if (!_roomService.AddParticipant(roomCode, participant))
+        {
+            ModelState.AddModelError("", "That name or colour is already taken in this room.");
+            return JoinAgain(model);
+        }
 
-        // Redirect to chat room
-        return RedirectToAction(nameof(Index), new { roomCode = model.RoomCode });
+        HttpContext.Session.SetString($"ParticipantId_{roomCode}", participant.Id);
+
+        _logger.LogInformation("Participant {ParticipantId} joined room {RoomId}", participant.Id, roomCode);
+
+        return RedirectToAction(nameof(Index), new { roomCode });
     }
 
     /// <summary>
@@ -275,19 +252,41 @@ public class RoomController : Controller
     }
 
     /// <summary>
-    /// Refills the colour swatches shown on the display-name form after a failed post.
+    /// The colours still free in a room, or the whole palette when the room is unknown.
     /// </summary>
-    private void RepopulateColors(string roomCode)
+    /// <remarks>
+    /// Somebody typing a code by hand has not told us which room they mean yet, so the form
+    /// offers everything and the post sorts it out. Arriving by link, the room is known and
+    /// the taken colours are simply absent — a colour clash is then rare rather than routine.
+    /// </remarks>
+    private Dictionary<string, string> ColorsFor(string? roomCode)
     {
-        var room = _roomService.GetRoom(roomCode);
+        var room = string.IsNullOrEmpty(roomCode) ? null : _roomService.GetRoom(roomCode);
         if (room == null)
         {
-            return;
+            return _colorService.GetAllColors();
         }
 
-        var usedColors = room.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
-        ViewBag.AvailableColors = _colorService.GetAvailableColors(usedColors);
+        var used = room.Participants.Where(p => !p.HasLeft).Select(p => p.ColorHex).ToList();
+        var available = _colorService.GetAvailableColors(used);
+        return available.Count > 0 ? available : _colorService.GetAllColors();
     }
+
+    /// <summary>Re-renders the join form with its swatches intact after a failed post.</summary>
+    private IActionResult JoinAgain(JoinRoomViewModel model)
+    {
+        ViewBag.AvailableColors = ColorsFor(model.RoomCode);
+        return View(nameof(Join), model);
+    }
+
+    private static Participant NewParticipant(string displayName, string colorHex) => new()
+    {
+        DisplayName = displayName,
+        ColorHex = colorHex,
+        JoinedAt = DateTime.UtcNow,
+        LastActivity = DateTime.UtcNow,
+        Status = ParticipantStatus.Online
+    };
 
     /// <summary>
     /// Generate QR code for shareable link

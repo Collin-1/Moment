@@ -42,20 +42,16 @@
             <span class="field-error" asp-validation-for="ExpiryMinutes"></span>
         </fieldset>
 
-        <fieldset class="field">
-            <legend class="field-label">Room type:</legend>
-            <div class="chip-row">
-                @foreach (var type in Enum.GetValues<RoomType>())
-                {
-                    <label class="chip">
-                        <input type="radio" asp-for="RoomType" value="@type" />
-                        <span>@type</span>
-                    </label>
-                }
-            </div>
-            @* Every room supports all three; this only decides what opens first. *@
-            <p class="field-hint">Text, voice and video are available in every room &mdash; this just chooses where you land.</p>
-        </fieldset>
+        @* Not a question any more. Every room carries text, voice and video whatever this
+           says, and all three are reachable from the room's own header — so asking bought a
+           decision that changed nothing. It rides along from the landing page's two buttons
+           so "start a video call" still opens on the video surface. *@
+        <input type="hidden" asp-for="RoomType" />
+
+        @* Asked here rather than on a page of its own. Collecting these two fields used to
+           cost a whole round trip, and the creator was sent through the join-with-a-code form
+           to reach it. *@
+        <partial name="_Identity" model="Model" />
 
         <p class="app-aside">
             Have an invite? <a asp-action="Join">Join with a code</a>

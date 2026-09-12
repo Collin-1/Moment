@@ -5,7 +5,7 @@
 
 <div class="app-panel">
     <h1 class="app-title">Join a moment</h1>
-    <p class="app-sub">Enter the six-character code you were given.</p>
+    <p class="app-sub">The code you were given, and how you would like to appear.</p>
 
     <form asp-action="Join" method="post">
         <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
@@ -21,17 +21,21 @@
                    autocapitalize="characters"
                    spellcheck="false"
                    data-uppercase
-                   autofocus
                    placeholder="XXXXXX" />
             <span class="field-error" asp-validation-for="RoomCode"></span>
         </div>
+
+        @* One page, not two. Validating the code used to be a page of its own that did
+           nothing but redirect — and the check had to be repeated here anyway, because a room
+           can fill up in between. *@
+        <partial name="_Identity" model="Model" />
 
         <p class="app-aside">
             No code? <a asp-action="Create">Create a moment</a>
         </p>
 
         <div class="app-actions">
-            <button type="submit" class="button primary">Join room</button>
+            <button type="submit" class="button primary">Enter the room</button>
         </div>
     </form>
 </div>

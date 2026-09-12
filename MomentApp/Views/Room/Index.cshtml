@@ -34,9 +34,9 @@
     <title>@ViewData["Title"] - Moment</title>
     <meta name="theme-color" content="#0c1e31" />
     <link rel="icon" href="/favicon.ico" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Inter:ital,wght@0,400;0,500;0,600;1,900&display=swap" rel="stylesheet" />
+    <!-- Self-hosted: a webfont request tells a third party the reader's IP and
+         which page they are on, room pages included. -->
+    <link rel="stylesheet" href="/css/fonts.css" />
     <link rel="stylesheet" href="@ClientAssets.Versioned("/css/moment.css")" />
     <link rel="stylesheet" href="@ClientAssets.Versioned("/css/room.css")" />
 
@@ -51,6 +51,10 @@
        be versioned while its dependencies were not. Emitted as a raw string because .NET 9's
        ImportMapTagHelper claims script[type=importmap] and silently replaces its content. *@
     @Html.Raw(ClientAssets.RoomImportMapScript())
+
+    @* Without these the browser cannot discover a dependency until the entry point has been
+       parsed, so the graph loads a level at a time. *@
+    @Html.Raw(ClientAssets.RoomModulePreloadLinks())
 </head>
 <body class="room" data-mode="@Model.Room.Type.ToString().ToLowerInvariant()">
     <div class="banner" id="reconnectingBanner" role="status">Reconnecting&hellip;</div>
@@ -80,6 +84,23 @@
 
             <div class="header-actions">
                 <span class="elapsed" id="elapsed" title="Time elapsed">00:00:00</span>
+
+                @* The way into a call, from every surface. These used to be hidden stubs at
+                   the foot of the document, which left a chat room with no way to start a
+                   call at all and a video room with its only join button inside a stage that
+                   video mode hides. The header is visible in all three modes. *@
+                <button class="icon-btn call-start" id="joinVoiceBtn" type="button" aria-label="Start a voice call">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16.5 16.5 0 0 1 4.5 5.7a2 2 0 0 1 2-2.2z" />
+                    </svg>
+                </button>
+
+                <button class="icon-btn call-start" id="joinVideoBtn" type="button" aria-label="Start a video call">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <rect x="2.5" y="6" width="13" height="12" rx="2.5" /><path d="m15.5 12 6-3.5v7z" />
+                    </svg>
+                </button>
+
                 <button class="icon-btn" id="shareBtn" type="button" aria-label="Share this room">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                         <circle cx="18" cy="5" r="2.5" /><circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="19" r="2.5" />
@@ -124,6 +145,16 @@
             <section class="surface surface-call">
                 <div class="filmstrip" id="filmstrip"></div>
 
+                @* A sibling of the speaker stage rather than a child of it: video mode hides
+                   the stage, which used to hide the only "join the call" button with it. *@
+                <div class="call-empty" id="callEmpty">
+                    <p>Nobody is in the call yet.</p>
+                    <div class="call-empty-actions">
+                        <button class="button primary" id="startCallBtn" type="button">Join with voice</button>
+                        <button class="button secondary" id="startVideoCallBtn" type="button">Join with video</button>
+                    </div>
+                </div>
+
                 <div class="speaker-stage" id="speakerStage">
                     <div class="speaker" id="activeSpeaker" hidden>
                         <div class="speaker-rings" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -133,11 +164,6 @@
                         <div class="wave" id="speakerWave" aria-hidden="true">
                             <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
                         </div>
-                    </div>
-
-                    <div class="call-empty" id="callEmpty">
-                        <p>Nobody is in the call yet.</p>
-                        <button class="control control-end" id="startCallBtn" type="button">Join the call</button>
                     </div>
                 </div>
 
@@ -171,6 +197,10 @@
         </aside>
 
         <!-- ----------------------------------------------- composer / controls -->
+        @* Both share the dock row. They used to occupy the same grid cell and be switched by
+           mode, which meant reading the chat during a call took the mute and end-call
+           buttons off screen. Stacked, either can show without evicting the other. *@
+        <div class="dock">
         <form class="composer" id="messageForm">
             <input type="text" id="messageInput" placeholder="Type a message" maxlength="2000" autocomplete="off" />
             <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
@@ -208,21 +238,18 @@
             <button class="control control-end" id="leaveVoiceBtn" type="button" disabled>End call</button>
             <button class="control control-end control-leave" id="leaveRoomBtn" type="button">Leave room</button>
         </div>
+        </div><!-- /.dock -->
     </div>
 
     <div class="sheet-scrim" id="sheetScrim"></div>
     <div class="toast" id="notification" role="status" aria-live="polite"></div>
     <div id="voiceAudioContainer" hidden></div>
 
-    @* Driven by the mode switch and "Join the call" rather than shown directly, but the call
-       module still targets them, so they stay in the DOM. *@
-    <button id="joinVoiceBtn" type="button" hidden></button>
-    <button id="joinVideoBtn" type="button" hidden></button>
     <button id="scrollToBottomBtn" type="button" hidden></button>
     <span id="voiceCount" hidden></span>
     <span id="voiceStatus" hidden></span>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="/js/vendor/signalr.min.js"></script>
     <script type="module" src="@ClientAssets.Versioned(ClientAssets.RoomEntry)"></script>
 </body>
 </html>

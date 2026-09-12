@@ -3,9 +3,35 @@ using System.ComponentModel.DataAnnotations;
 namespace MomentApp.Models;
 
 /// <summary>
+/// How a visitor will appear inside a room.
+/// </summary>
+/// <remarks>
+/// Shared by both ways in. Asking for this on the same form that creates or finds the room
+/// is what removes the separate "choose a display name" page: it was a whole round trip to
+/// collect two fields that the form before it had room for.
+/// </remarks>
+public abstract class ParticipantEntryViewModel
+{
+    [Required(ErrorMessage = "Please enter a display name")]
+    [StringLength(20, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 20 characters")]
+    // Excludes the characters that carry meaning in markup, plus control characters. Display
+    // names are echoed into every other participant's page, so this keeps the value harmless
+    // at the boundary as well as at each render site. Everything else, including non-Latin
+    // scripts, is allowed.
+    [RegularExpression(@"^[^<>&""'\\/\x00-\x1F\x7F]+$",
+        ErrorMessage = "Display name cannot contain < > & \" ' \\ or /")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    // Validated against ColorService's palette in the controller — an allow-list, because
+    // this value ends up inside style attributes on other participants' pages.
+    [Required(ErrorMessage = "Please choose a colour")]
+    public string ColorHex { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// ViewModel for creating a new room
 /// </summary>
-public class CreateRoomViewModel
+public class CreateRoomViewModel : ParticipantEntryViewModel
 {
     /// <summary>
     /// Optional name for the room
@@ -35,6 +61,12 @@ public class CreateRoomViewModel
     /// <summary>
     /// Which surface the room opens into.
     /// </summary>
+    /// <remarks>
+    /// No longer asked for on the form. Every room carries text, voice and video whatever
+    /// this says, and now that all three are reachable from the room's own header, the
+    /// question bought a decision and changed nothing. It survives as the landing page's
+    /// <c>?type=</c> hint, so "start a video call" still opens on the video surface.
+    /// </remarks>
     [Required]
     public RoomType RoomType { get; set; } = RoomType.Chat;
 }
@@ -54,36 +86,13 @@ public class RoomCreatedViewModel
 }
 
 /// <summary>
-/// ViewModel for joining a room
+/// ViewModel for joining a room: the code and how you will appear, on one form.
 /// </summary>
-public class JoinRoomViewModel
+public class JoinRoomViewModel : ParticipantEntryViewModel
 {
     [Required(ErrorMessage = "Please enter a room code")]
     [StringLength(6, MinimumLength = 6, ErrorMessage = "Room code must be exactly 6 characters")]
     [RegularExpression("^[A-Z0-9]{6}$", ErrorMessage = "Room code must contain only uppercase letters and numbers")]
-    public string RoomCode { get; set; } = string.Empty;
-}
-
-/// <summary>
-/// ViewModel for selecting participant display name and color
-/// </summary>
-public class SelectDisplayViewModel
-{
-    [Required(ErrorMessage = "Please enter a display name")]
-    [StringLength(20, MinimumLength = 2, ErrorMessage = "Display name must be between 2 and 20 characters")]
-    // Excludes the characters that carry meaning in markup, plus control characters. Display
-    // names are echoed into every other participant's page, so this keeps the value harmless
-    // at the boundary as well as at each render site. Everything else, including non-Latin
-    // scripts, is allowed.
-    [RegularExpression(@"^[^<>&""'\\/\x00-\x1F\x7F]+$",
-        ErrorMessage = "Display name cannot contain < > & \" ' \\ or /")]
-    public string DisplayName { get; set; } = string.Empty;
-
-    // Validated against ColorService's palette in the controller — an allow-list, because
-    // this value ends up inside style attributes on other participants' pages.
-    [Required(ErrorMessage = "Please select a color")]
-    public string ColorHex { get; set; } = string.Empty;
-
     public string RoomCode { get; set; } = string.Empty;
 }
 

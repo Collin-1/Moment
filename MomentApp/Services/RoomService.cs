@@ -11,6 +11,10 @@ public class RoomService : IRoomService
 {
     private readonly ConcurrentDictionary<string, Room> _rooms = new(StringComparer.Ordinal);
 
+    /// <summary>SignalR connection id -> the room and participant it belongs to.</summary>
+    private readonly ConcurrentDictionary<string, (string RoomId, string ParticipantId)> _connections
+        = new(StringComparer.Ordinal);
+
     // Excludes I, O, 0 and 1 — characters people misread when typing a code from a screen.
     private const string CodeCharacters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -165,6 +169,44 @@ public class RoomService : IRoomService
     {
         var room = GetRoom(roomId);
         return room?.Participants.FirstOrDefault(p => p.ConnectionId == connectionId);
+    }
+
+    public void BindConnection(string connectionId, string roomId, string participantId)
+    {
+        if (string.IsNullOrEmpty(connectionId)) return;
+        _connections[connectionId] = (roomId, participantId);
+    }
+
+    public bool TryResolveConnection(string connectionId, out Room room, out Participant participant)
+    {
+        room = null!;
+        participant = null!;
+
+        if (string.IsNullOrEmpty(connectionId) || !_connections.TryGetValue(connectionId, out var binding))
+        {
+            return false;
+        }
+
+        var candidateRoom = GetRoom(binding.RoomId);
+        var candidate = candidateRoom?.FindParticipant(binding.ParticipantId);
+
+        // The room may have expired or been voted closed while the connection was open. A
+        // binding that no longer resolves is dropped here rather than left to accumulate.
+        if (candidateRoom == null || candidate == null)
+        {
+            _connections.TryRemove(connectionId, out _);
+            return false;
+        }
+
+        room = candidateRoom;
+        participant = candidate;
+        return true;
+    }
+
+    public void ReleaseConnection(string connectionId)
+    {
+        if (string.IsNullOrEmpty(connectionId)) return;
+        _connections.TryRemove(connectionId, out _);
     }
 
     public void StartGracePeriod(string roomId)

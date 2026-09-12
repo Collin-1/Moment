@@ -133,7 +133,7 @@ public class TimerService : BackgroundService
             participant.IsInVideo = false;
 
             await _hubContext.Clients.Group(room.Id)
-                .SendAsync("VoiceParticipantLeft", participant.Id, participant.DisplayName, cancellationToken);
+                .SendAsync("CallParticipantLeft", participant.Id, participant.DisplayName, cancellationToken);
 
             _logger.LogInformation(
                 "Participant {ParticipantId} did not reconnect within the grace period and left the call in room {RoomId}",
