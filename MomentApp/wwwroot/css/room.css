@@ -494,44 +494,50 @@ body[data-speaking="true"] .speaker-rings i { animation: ring 3s ease-out infini
 
 /* ------------------------------------------------------- video call stage */
 
-.filmstrip {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 16px clamp(12px, 2vw, 24px) 0;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  flex: none;
-}
+/* Every participant gets an equal cell, the way Meet and Teams arrange a call. The previous
+   layout put a filmstrip of thumbnails above one large tile, which meant whoever held the
+   stage appeared twice — and, alone in a call, you watched two copies of yourself.
 
-/* Alone in a video call, the single filmstrip tile is a thumbnail of the same person the
-   stage below is already showing at full size. */
-.filmstrip:empty,
-.filmstrip:has(> :only-child),
-body[data-mode="voice"] .filmstrip { display: none; }
-
-.tile {
-  position: relative;
-  flex: 0 0 clamp(120px, 22vw, 260px);
-  aspect-ratio: 16 / 9;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--app-raised);
-  scroll-snap-align: start;
-}
-
-.stage-tile {
+   --cols is set by updateStage() from the number of tiles: CSS cannot take a square root, and
+   auto-fit with a min width gives unequal trailing rows on the counts that matter most. */
+.video-grid {
   flex: 1;
   min-block-size: 0;
-  margin: 16px clamp(12px, 2vw, 24px);
-  border-radius: 14px;
-  overflow: hidden;
+  display: grid;
+  gap: clamp(8px, 1vw, 14px);
+  padding: clamp(8px, 1.4vw, 20px);
+  /* grid-template-columns is set by updateStage(): the column count depends on how many
+     people are in the call, and the track count is doubled so a short last row can be
+     offset by half a cell. */
+  grid-auto-flow: row;
+  grid-auto-rows: 1fr;
+  align-content: stretch;
+}
+
+.video-grid:empty,
+body[data-mode="voice"] .video-grid { display: none; }
+
+/* Two tracks each, because the grid is built at twice the column count so a short last row
+   can be offset by half a cell and read as centred. */
+.tile {
+  grid-column: span 2;
   position: relative;
+  min-inline-size: 0;
+  min-block-size: 0;
+  border-radius: 12px;
+  overflow: hidden;
   background: var(--app-raised);
 }
 
-.tile video,
-.stage-tile video {
+/* Whoever is speaking, ringed in their own colour — the same identity cue the roster uses,
+   and the only thing left that says who the call is currently following. */
+.tile.speaking { box-shadow: inset 0 0 0 2px var(--participant-color, var(--live)); }
+
+/* A shared screen is the thing everyone is there to look at, so it takes the full width and
+   the faces sit under it. */
+.tile[data-share] { grid-column: 1 / -1; grid-row: span 2; }
+
+.tile video {
   inline-size: 100%;
   block-size: 100%;
   object-fit: cover;
@@ -540,8 +546,7 @@ body[data-mode="voice"] .filmstrip { display: none; }
 
 /* A shared screen must never be cropped — the edges are usually where the
    content is. */
-.tile[data-share] video,
-.stage-tile[data-share] video { object-fit: contain; background: #000; }
+.tile[data-share] video { object-fit: contain; background: #000; }
 
 /* Camera-off fallback: the participant's coloured initial, as in the design's
    cameras-off frame, rather than a black rectangle. */
@@ -563,8 +568,7 @@ body[data-mode="voice"] .filmstrip { display: none; }
   font-size: clamp(1.4rem, 6vw, 3.5rem);
 }
 
-.tile:has(video[data-live]) .tile-avatar,
-.stage-tile:has(video[data-live]) .tile-avatar { display: none; }
+.tile:has(video[data-live]) .tile-avatar { display: none; }
 
 .tile-label {
   position: absolute;
@@ -574,15 +578,6 @@ body[data-mode="voice"] .filmstrip { display: none; }
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
   color: var(--participant-color, var(--app-text));
   font-size: 0.85rem;
-}
-
-.stage-tile .tile-label {
-  inset-block-end: 16px;
-  inset-inline-start: 16px;
-  inset-inline-end: auto;
-  border-radius: 8px;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 8px 14px;
 }
 
 /* ------------------------------------------------------------ right panel */
@@ -870,7 +865,11 @@ body.in-call .call-start { display: none; }
   }
 
   .message { max-inline-size: 88%; }
-  .filmstrip .tile { flex-basis: clamp(96px, 34vw, 150px); aspect-ratio: 3 / 4; }
+  /* Two columns is the most a phone can show without faces becoming thumbnails, so the
+     grid stops widening and starts scrolling instead. */
+  /* The column cap itself is applied in updateStage(); this only stops tall stacks from
+     squashing every face once the grid runs past the screen. */
+  .video-grid { grid-auto-rows: minmax(30vh, 1fr); overflow-y: auto; }
 
   /* The rings are sized off the stage, which is tall and narrow on a phone; without a cap
      they swamp the avatar they are supposed to radiate from. */
