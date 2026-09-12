@@ -1,6 +1,6 @@
 import { byId } from "moment/dom";
 import { state } from "moment/state";
-import { remountMessages, scrollToBottom } from "moment/ui/chat";
+import { remountMessages, remountComposer, focusComposer, scrollToBottom } from "moment/ui/chat";
 import { updateStage } from "moment/ui/video-stage";
 import { refreshCallUi } from "moment/ui/call-controls";
 
@@ -24,8 +24,10 @@ export function setMode(mode) {
     document.body.dataset.mode = mode;
 
     // The message list lives in the stage for chat and in the side panel for video, so the
-    // rendered history moves across rather than being re-rendered into a second copy.
+    // rendered history — and the box you answer it in — move across rather than being
+    // re-rendered into a second copy.
     remountMessages();
+    remountComposer();
     updateStage();
     scrollToBottom();
 
@@ -68,6 +70,10 @@ function selectTab(which) {
         panes[key]?.classList.toggle("active", key === which);
     }
 
+    // The composer belongs to the Messages tab, so CSS needs to know which tab is up.
+    const panel = byId("roomPanel");
+    if (panel) panel.dataset.tab = which;
+
     if (which === "messages") scrollToBottom();
 }
 
@@ -91,13 +97,16 @@ export function initLayout({ onModeChange } = {}) {
     byId("tabParticipants")?.addEventListener("click", () => selectTab("participants"));
 
     // The chat button swaps between the call surface and the message list. In video mode the
-    // messages are already beside the call, so it opens the panel instead.
+    // messages are already beside the call, so it selects that tab and puts the cursor in the
+    // box — otherwise, on a desktop where the panel is always open, pressing it appeared to
+    // do nothing at all.
     byId("chatToggleBtn")?.addEventListener("click", () => {
         if (currentMode() === "video") {
             selectTab("messages");
             if (window.matchMedia("(max-width: 900px)").matches) {
                 toggleSheet(byId("roomPanel"), null);
             }
+            focusComposer();
             return;
         }
 

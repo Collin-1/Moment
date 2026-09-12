@@ -91,7 +91,7 @@ public class RoomController : Controller
 
             _logger.LogInformation("Room created: {RoomId}", room.Id);
 
-            return RedirectToAction(nameof(Created), new { roomCode = room.Id });
+            return RedirectToAction(nameof(Index), new { roomCode = room.Id });
         }
         catch (Exception ex)
         {
@@ -103,9 +103,19 @@ public class RoomController : Controller
     }
 
     /// <summary>
-    /// Display room created success page with QR code
+    /// The room's join link as a QR code.
     /// </summary>
-    public IActionResult Created(string roomCode)
+    /// <remarks>
+    /// An endpoint rather than a data URL in the page: the room page is no-store, so an
+    /// inlined QR would be regenerated and re-sent on every load and every reconnect, for a
+    /// picture most people never look at. Here it is fetched once, when somebody actually
+    /// opens the invite panel.
+    ///
+    /// Session-gated for the same reason /api/ice is: only somebody already admitted should
+    /// be able to mint an invite to the room.
+    /// </remarks>
+    [HttpGet]
+    public IActionResult Qr(string roomCode)
     {
         var room = _roomService.GetRoom(roomCode);
         if (room == null)
@@ -113,21 +123,20 @@ public class RoomController : Controller
             return NotFound();
         }
 
-        var shareableLink = Url.Action("Join", "Room", new { code = roomCode }, Request.Scheme);
-        var qrCodeDataUrl = GenerateQRCode(shareableLink!);
-
-        var viewModel = new RoomCreatedViewModel
+        if (string.IsNullOrEmpty(HttpContext.Session.GetString($"ParticipantId_{roomCode}")))
         {
-            RoomCode = room.Id,
-            RoomName = room.Name,
-            ShareableLink = shareableLink!,
-            QRCodeDataUrl = qrCodeDataUrl,
-            ExpiresAt = room.ExpiresAt,
-            ExpiryMinutes = (int)Math.Round((room.ExpiresAt - room.CreatedAt).TotalMinutes),
-            RoomType = room.Type
-        };
+            return Unauthorized();
+        }
 
-        return View(viewModel);
+        var link = ShareLink(roomCode);
+        var png = GenerateQrPng(link);
+        if (png.Length == 0)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        return File(png, "image/png");
     }
 
     /// <summary>
@@ -237,7 +246,8 @@ public class RoomController : Controller
         {
             Room = room,
             CurrentParticipant = participant,
-            AvailableColors = _colorService.GetAllColors().Keys.ToList()
+            AvailableColors = _colorService.GetAllColors().Keys.ToList(),
+            ShareLink = ShareLink(roomCode)
         };
 
         return View(viewModel);
@@ -288,23 +298,30 @@ public class RoomController : Controller
         Status = ParticipantStatus.Online
     };
 
+    /// <summary>The absolute link that puts somebody on the join form for this room.</summary>
+    /// <remarks>
+    /// Deliberately the Join route rather than the room itself. Both work — the room bounces a
+    /// stranger to Join — but the direct link saves them a redirect.
+    /// </remarks>
+    private string ShareLink(string roomCode) =>
+        Url.Action(nameof(Join), "Room", new { code = roomCode }, Request.Scheme)!;
+
     /// <summary>
-    /// Generate QR code for shareable link
+    /// Renders a link as a QR PNG, or an empty array if it cannot be produced.
     /// </summary>
-    private string GenerateQRCode(string url)
+    private byte[] GenerateQrPng(string url)
     {
         try
         {
-            using var qrGenerator = new QRCodeGenerator();
-            var qrCodeData = qrGenerator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
-            using var qrCode = new PngByteQRCode(qrCodeData);
-            var qrCodeBytes = qrCode.GetGraphic(20);
-            return $"data:image/png;base64,{Convert.ToBase64String(qrCodeBytes)}";
+            using var generator = new QRCodeGenerator();
+            var data = generator.CreateQrCode(url, QRCodeGenerator.ECCLevel.Q);
+            using var qr = new PngByteQRCode(data);
+            return qr.GetGraphic(20);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating QR code");
-            return string.Empty;
+            return Array.Empty<byte>();
         }
     }
 }

@@ -18,6 +18,8 @@
         participantId = Model.CurrentParticipant.Id,
         displayName = Model.CurrentParticipant.DisplayName,
         colorHex = Model.CurrentParticipant.ColorHex,
+        shareUrl = Model.ShareLink,
+        qrUrl = Url.Action("Qr", "Room", new { roomCode = Model.Room.Id }),
         hubUrl = "/hubs/room",
         homeUrl = Url.Action("Index", "Home"),
         closedUrl = Url.Action("Closed", "Room")
@@ -180,7 +182,7 @@
         </div>
 
         <!-- ------------------------------------------------------- right panel -->
-        <aside class="room-panel" id="roomPanel">
+        <aside class="room-panel" id="roomPanel" data-tab="messages">
             <div class="panel-tabs" role="tablist">
                 <button class="panel-tab" id="tabMessages" role="tab" aria-selected="true" aria-controls="paneMessages" type="button">
                     Messages (<span id="messageCount">0</span>)
@@ -194,6 +196,10 @@
                 <div class="panel-pane active" id="paneMessages" role="tabpanel" aria-labelledby="tabMessages"></div>
                 <div class="panel-pane" id="paneParticipants" role="tabpanel" aria-labelledby="tabParticipants"></div>
             </div>
+
+            @* Where the composer goes in video mode. It is moved here rather than copied, so
+               there is one input with one value and one focus wherever you are. *@
+            <div class="panel-composer" id="panelComposer"></div>
         </aside>
 
         <!-- ----------------------------------------------- composer / controls -->
@@ -201,14 +207,16 @@
            mode, which meant reading the chat during a call took the mute and end-call
            buttons off screen. Stacked, either can show without evicting the other. *@
         <div class="dock">
-        <form class="composer" id="messageForm">
-            <input type="text" id="messageInput" placeholder="Type a message" maxlength="2000" autocomplete="off" />
-            <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M2.5 21 23 12 2.5 3 2.5 10l14 2-14 2z" />
-                </svg>
-            </button>
-        </form>
+        <div class="dock-composer" id="dockComposer">
+            <form class="composer" id="messageForm">
+                <input type="text" id="messageInput" placeholder="Type a message" maxlength="2000" autocomplete="off" />
+                <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message">
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M2.5 21 23 12 2.5 3 2.5 10l14 2-14 2z" />
+                    </svg>
+                </button>
+            </form>
+        </div>
 
         <div class="control-bar">
             <button class="control" id="muteVoiceBtn" type="button" aria-pressed="false" aria-label="Mute microphone" disabled>
@@ -240,6 +248,34 @@
         </div>
         </div><!-- /.dock -->
     </div>
+
+    @* The "room created" page used to hold the code, the link and the QR, which meant a whole
+       page between making a room and being in it — and nowhere to find any of it afterwards.
+       It lives here now, behind the share button, reachable for as long as the room is. *@
+    <dialog class="invite" id="inviteDialog" aria-labelledby="inviteTitle">
+        <h2 id="inviteTitle">Invite someone</h2>
+
+        <p class="invite-label">Room code</p>
+        <p class="invite-code">@Model.Room.Id</p>
+
+        <p class="invite-label" id="inviteLinkLabel">Or share this link</p>
+        <div class="invite-row">
+            <input class="field-input" id="inviteLink" readonly aria-labelledby="inviteLinkLabel"
+                   value="@Model.ShareLink" />
+            <button class="copy-btn" id="inviteCopyBtn" type="button">Copy</button>
+        </div>
+
+        @* Loaded when the dialog is first opened rather than with the page: most people never
+           open it, and the room page is no-store so it would be re-fetched every time. *@
+        <img class="invite-qr" id="inviteQr" alt="QR code linking to this room" width="168" height="168" />
+
+        <p class="invite-note">Anyone with this can join until the room ends. It is the only key.</p>
+
+        <div class="invite-actions">
+            <button class="button primary" id="inviteShareBtn" type="button" hidden>Share&hellip;</button>
+            <button class="button secondary" id="inviteCloseBtn" type="button">Done</button>
+        </div>
+    </dialog>
 
     <div class="sheet-scrim" id="sheetScrim"></div>
     <div class="toast" id="notification" role="status" aria-live="polite"></div>

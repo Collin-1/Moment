@@ -96,6 +96,27 @@ export function remountMessages() {
     scrollToBottom();
 }
 
+/**
+ * Moves the composer to wherever the messages currently are.
+ *
+ * Moved rather than duplicated, for the same reason the list is: two inputs would be two
+ * values, two drafts and two places for focus to be, and whichever one you had typed into
+ * would be the one that had just been hidden.
+ */
+export function remountComposer() {
+    const mount = document.body.dataset.mode === "video"
+        ? byId("panelComposer")
+        : byId("dockComposer");
+    const form = byId("messageForm");
+
+    if (mount && form && form.parentElement !== mount) mount.appendChild(form);
+}
+
+/** Puts the cursor in the message box, wherever it currently lives. */
+export function focusComposer() {
+    byId("messageInput")?.focus();
+}
+
 export function scrollToBottom() {
     const list = activeList();
     if (list) list.scrollTop = list.scrollHeight;
@@ -131,6 +152,10 @@ async function submit(event) {
 }
 
 export function initChatView() {
+    // A Video room opens straight into video mode, and setMode is a no-op for the mode you
+    // are already in — so the first placement has to happen here rather than on a switch.
+    remountComposer();
+
     byId("messageForm").addEventListener("submit", submit);
 
     let typingTimer;

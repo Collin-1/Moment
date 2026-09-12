@@ -72,20 +72,6 @@ public class CreateRoomViewModel : ParticipantEntryViewModel
 }
 
 /// <summary>
-/// ViewModel for displaying room creation success
-/// </summary>
-public class RoomCreatedViewModel
-{
-    public string RoomCode { get; set; } = string.Empty;
-    public string? RoomName { get; set; }
-    public string ShareableLink { get; set; } = string.Empty;
-    public string QRCodeDataUrl { get; set; } = string.Empty;
-    public DateTime ExpiresAt { get; set; }
-    public int ExpiryMinutes { get; set; }
-    public RoomType RoomType { get; set; }
-}
-
-/// <summary>
 /// ViewModel for joining a room: the code and how you will appear, on one form.
 /// </summary>
 public class JoinRoomViewModel : ParticipantEntryViewModel
@@ -104,4 +90,7 @@ public class ChatRoomViewModel
     public Room Room { get; set; } = new Room();
     public Participant CurrentParticipant { get; set; } = new Participant();
     public List<string> AvailableColors { get; set; } = new List<string>();
+
+    /// <summary>The absolute join link, for the in-room invite panel.</summary>
+    public string ShareLink { get; set; } = string.Empty;
 }

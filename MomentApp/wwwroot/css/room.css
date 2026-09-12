@@ -28,8 +28,11 @@ body.room {
   block-size: 100%;
   grid-template-columns: 320px minmax(0, 1fr) 0;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  /* The header spans the panel column too. It used to stop short, leaving a named cell that
+     nothing ever occupied — invisible while the panel column was 0 wide, and a dead
+     rectangle in the top right the moment video mode gave that column 380px. */
   grid-template-areas:
-    "sidebar header footer"
+    "sidebar header header"
     "sidebar stage  panel"
     "sidebar dock   panel";
   transition: grid-template-columns 0.25s ease;
@@ -329,16 +332,29 @@ body[data-mode="video"] .surface-call { display: flex; flex-direction: column; }
   flex-direction: column;
 }
 
+/* The composer is moved between two mounts rather than duplicated, so there is one input
+   holding one value with one focus wherever you are typing. The mounts decide when it shows;
+   the form itself is always laid out. */
 .composer {
   display: flex;
   gap: 12px;
   align-items: center;
+}
+
+.dock-composer {
+  display: none;
   padding: 0 clamp(16px, 3vw, 56px) clamp(16px, 2vw, 32px);
   padding-block-end: max(clamp(16px, 2vw, 32px), env(safe-area-inset-bottom));
 }
 
-body[data-mode="chat"] .composer { display: flex; }
-body:not([data-mode="chat"]) .composer { display: none; }
+body[data-mode="chat"] .dock-composer { display: block; }
+
+/* In video mode the messages are in the panel, so the composer goes with them — otherwise
+   the conversation is readable there and answerable nowhere. Only while the Messages tab is
+   up: a message box under the participant list would be answering nothing. */
+.panel-composer { display: none; padding: 0 16px 16px; }
+
+body[data-mode="video"] .room-panel[data-tab="messages"] .panel-composer { display: block; }
 
 .composer input {
   flex: 1;
@@ -488,7 +504,10 @@ body[data-speaking="true"] .speaker-rings i { animation: ring 3s ease-out infini
   flex: none;
 }
 
+/* Alone in a video call, the single filmstrip tile is a thumbnail of the same person the
+   stage below is already showing at full size. */
 .filmstrip:empty,
+.filmstrip:has(> :only-child),
 body[data-mode="voice"] .filmstrip { display: none; }
 
 .tile {
@@ -610,10 +629,17 @@ body[data-mode="video"] .room-panel { display: flex; }
 /* In video mode the message list and composer move into the panel. */
 body[data-mode="video"] .surface-chat { display: none; }
 
-/* The dividers either side of a system notice have to shrink in the panel; at 380px they
-   otherwise squeeze the label down to two words a line. */
+/* The dividers either side of a system notice do not survive panel width: shrinking them far
+   enough to keep the label on one line leaves two stray dashes, and not shrinking them breaks
+   "Aystin joined the room" across two lines. The notice reads perfectly well on its own. */
+.panel-pane .message.system {
+  display: block;
+  text-align: center;
+  padding-block: 4px;
+}
+
 .panel-pane .message.system::before,
-.panel-pane .message.system::after { inline-size: clamp(12px, 6%, 40px); }
+.panel-pane .message.system::after { content: none; }
 
 .panel-pane .message { max-inline-size: 92%; }
 
@@ -893,3 +919,65 @@ body.in-call .call-start { display: none; }
 /* The sidebar copy of Leave room only earns its place when the control bar has dropped it. */
 .sheet-leave { display: none; }
 @media (max-width: 560px) { .sheet-leave { display: block; } }
+
+/* ---------------------------------------------------------- invite dialog */
+
+/* A modal <dialog> here, unlike the roster sheet: this is a deliberate interruption, so
+   trapping focus and dimming the room behind it is the behaviour you want. */
+.invite {
+  border: 1px solid rgba(68, 146, 202, 0.35);
+  border-radius: var(--radius-card);
+  background: var(--app-raised);
+  color: var(--app-text);
+  inline-size: min(420px, calc(100vw - 32px));
+  padding: clamp(20px, 4vw, 32px);
+  text-align: center;
+}
+
+.invite::backdrop { background: rgba(5, 12, 20, 0.65); }
+
+.invite h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin: 0 0 20px;
+}
+
+.invite-label {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--azure);
+}
+
+.invite-code {
+  margin: 0 0 20px;
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 8vw, 2.6rem);
+  letter-spacing: 0.18em;
+  color: var(--bright);
+  /* The code is read aloud and typed by hand more than it is copied. */
+  user-select: all;
+}
+
+.invite-row { display: flex; gap: 8px; margin-bottom: 20px; }
+.invite-row .field-input { flex: 1; min-inline-size: 0; text-align: start; }
+
+.invite-qr {
+  display: block;
+  margin: 0 auto 16px;
+  border-radius: 12px;
+  background: var(--white);
+  padding: 8px;
+}
+
+/* Nothing to show until the image has actually loaded, and a broken-image glyph in a modal
+   reads as a failure rather than as an absent nicety. */
+.invite-qr:not([src]) { display: none; }
+
+.invite-note {
+  margin: 0 0 20px;
+  font-size: 0.8rem;
+  color: rgba(214, 231, 255, 0.5);
+}
+
+.invite-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
